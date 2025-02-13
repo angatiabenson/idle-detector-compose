@@ -33,11 +33,11 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            IdledetectorappTheme {
-                IdleDetectorProvider(
-                    idleTimeout = 5.seconds, // Easy to see timeout for demo
-                    onIdle = { /* Could show dialog or navigate here */ }
-                ) {
+            IdleDetectorProvider(
+                idleTimeout = 5.seconds,
+                onIdle = { /* Could show dialog or navigate here */ }
+            ) {
+                IdledetectorappTheme {
                     AppContent()
                 }
             }

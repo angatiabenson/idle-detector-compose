@@ -1,7 +1,11 @@
+import com.vanniktech.maven.publish.SonatypeHost
+
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+   // id("module.publication")
+    id("com.vanniktech.maven.publish") version "0.30.0"
 }
 
 android {
@@ -35,6 +39,37 @@ android {
     buildFeatures {
         compose = true
     }
+}
+
+mavenPublishing {
+    coordinates("io.github.angatiabenson", "idle-detector-compose", "0.0.1")
+
+    pom {
+        name.set("Idle Detector Compose")
+        description.set("A Jetpack Compose library that detects user inactivity across your entire app with zero boilerplate. Perfect for implementing session timeouts, security screens, or automatic logouts.")
+        inceptionYear.set("2025")
+        url.set("https://github.com/angatiabenson/idle-detector-compose")
+
+        licenses {
+            license {
+                name.set("The Apache License, Version 2.0")
+                url.set("http://www.apache.org/licenses/LICENSE-2.0.txt")
+            }
+        }
+        developers {
+            developer {
+                id.set("angatiabenson")
+                name.set("Angatia Benson")
+                email.set("bensonetia@gmail.com")
+            }
+        }
+        scm {
+            url.set("https://github.com/angatiabenson/idle-detector-compose")
+        }
+    }
+
+    publishToMavenCentral(SonatypeHost.CENTRAL_PORTAL)
+    signAllPublications()
 }
 
 dependencies {
