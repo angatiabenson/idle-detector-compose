@@ -21,3 +21,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "idle-detector-app"
 include(":app")
+include(":idle-detector-compose")
