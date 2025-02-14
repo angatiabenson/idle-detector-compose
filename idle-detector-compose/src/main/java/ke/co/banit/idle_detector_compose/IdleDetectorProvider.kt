@@ -66,7 +66,8 @@ import kotlin.time.Duration.Companion.seconds
  * via a pointerInput modifier and leverages lifecycle events to pause/resume monitoring appropriately.
  *
  * **Important Dependencies and Considerations:**
- * - The [IdleDetector] class is assumed to be available in your project and is instantiated via [remember].
+ * - The [IdleDetector] is a utility class that monitors user interactions and determines if the user
+ *   has been inactive for a specified timeout period..
  * - Lifecycle events are managed using [DisposableEffect] to ensure that the detector is started when the screen
  *   resumes and stopped when paused.
  * - User interactions are captured using [pointerInput] on a [Box] container. This approach avoids interfering
@@ -82,7 +83,6 @@ fun IdleDetectorProvider(
     content: @Composable () -> Unit,
 ) {
     // Create (and cache) an instance of IdleDetector.
-    // IdleDetector is assumed to handle polling for user inactivity internally using coroutines.
     val idleDetector = remember { IdleDetector(idleTimeout, checkInterval) }
 
     // Obtain the current LifecycleOwner (typically the Activity or Fragment hosting the Compose UI).

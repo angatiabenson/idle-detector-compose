@@ -17,7 +17,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -34,8 +34,11 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             IdleDetectorProvider(
-                idleTimeout = 5.seconds,
-                onIdle = { /* Could show dialog or navigate here */ }
+                idleTimeout = 5.seconds, // Set the idle timeout: 5 seconds of inactivity triggers onIdle.
+                onIdle = {
+                    // Callback triggered when the user becomes idle.
+                    // For instance, you could display an idle warning dialog or navigate to a lock screen.
+                }
             ) {
                 IdledetectorappTheme {
                     AppContent()
@@ -44,10 +47,11 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
-
 @Composable
 private fun AppContent() {
-    var interactionCount by remember { mutableStateOf(0) }
+    // Local state tracking the number of times the button is tapped.
+    var interactionCount by remember { mutableIntStateOf(0) }
+    // Observe the idle state (true if the session is idle, false otherwise) from IdleDetectorProvider.
     val isSessionIdle by LocalIdleDetectorState.current.collectAsState()
 
     Column(
@@ -57,33 +61,40 @@ private fun AppContent() {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        // Display current state
+        // Display a text status indicating whether the user session is idle.
         Text(
-            if (isSessionIdle) "IDLE STATE ⚠️" else "ACTIVE STATE ✅",
+            text = if (isSessionIdle) "IDLE STATE ⚠️" else "ACTIVE STATE ✅",
             style = MaterialTheme.typography.displaySmall,
-            color = if (isSessionIdle) MaterialTheme.colorScheme.error
-            else MaterialTheme.colorScheme.primary
+            color = if (isSessionIdle)
+                MaterialTheme.colorScheme.error
+            else
+                MaterialTheme.colorScheme.primary
         )
 
-        Spacer(Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
-        // Interactive element
+        // Provide an interactive button that increments the interaction count when tapped.
         Button(
             onClick = { interactionCount++ },
             colors = ButtonDefaults.buttonColors(
-                containerColor = if (isSessionIdle) MaterialTheme.colorScheme.errorContainer
-                else MaterialTheme.colorScheme.primaryContainer
+                containerColor = if (isSessionIdle)
+                    MaterialTheme.colorScheme.error
+                else
+                    MaterialTheme.colorScheme.primary
             )
         ) {
+            // Display the current tap count on the button.
             Text("Tap me (${interactionCount}x)")
         }
 
-        Spacer(Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
-        // Help text
+        // Show contextual help text guiding the user.
         Text(
-            text = if (isSessionIdle) "Touch screen to resume!"
-            else "Don't interact for 5 seconds to test",
+            text = if (isSessionIdle)
+                "Touch screen to resume!"
+            else
+                "Don't interact for 5 seconds to test",
             style = MaterialTheme.typography.bodyMedium
         )
     }

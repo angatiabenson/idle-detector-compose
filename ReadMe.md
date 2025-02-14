@@ -55,20 +55,20 @@ class MainActivity : ComponentActivity() {
 fun HomeScreen() {  
     val isIdle by LocalIdleDetectorState.current.collectAsState()  
      if (isIdle) {  
-        IdleWarningDialog()  
- }  
-    // Your screen content  
+        IdleWarningDialog() 
+     }  
+    // Your screen content 
 }  
 ```  
 ## API Reference 📚
 
 ### IdleDetectorProvider Parameters
-| Parameter       | Type          | Default     | Description                          |  
-|-----------------|---------------|-------------|--------------------------------------|  
-| `timeout` | `Duration` | **Required**| Duration until idle state triggers   |  
-| `onIdle` | `() -> Unit` | **Required**| Callback when idle state is reached  |  
-| `checkInterval` | `Duration` | 1.second    | How often to check for inactivity    |  
-| `content` | `@Composable` | **Required**| Your app content                     |  
+| Parameter       | Type          | Default      | Description                         |  
+|-----------------|---------------|--------------|-------------------------------------|  
+| `timeout`       | `Duration`    | **Required** | Duration until idle state triggers  |  
+| `onIdle`        | `() -> Unit`  | **Required** | Callback when idle state is reached |  
+| `checkInterval` | `Duration`    | 1.second     | How often to check for inactivity   |  
+| `content`       | `@Composable` | **Required** | Your app content                    |  
 
 ## Troubleshooting 🔍
 
