@@ -30,21 +30,23 @@ dependencies {
 
 ### 1. Wrap Your App
 ```kotlin  
-class MainActivity : ComponentActivity() {    
-    override fun onCreate(savedInstanceState: Bundle?) {    
-      super.onCreate(savedInstanceState)    
-      enableEdgeToEdge()    
-      setContent {    
-         IdleDetectorProvider(    
-            idleTimeout = 5.seconds,    
-            onIdle = { /* Could show dialog or navigate here */ }    
- ) {    
-            IdledetectorappTheme {    
-               AppContent()    
- }   
- }    
- }    
- } }  
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
+        setContent {
+            IdleDetectorProvider(
+                idleTimeout = 5.seconds,
+                checkInterval = 1.seconds,
+                onIdle = { /* Could show dialog or navigate here */ },
+            ){ 
+                IdledetectorappTheme {
+                    AppContent()
+                }
+            }
+        }
+    }
+}
 ```  
 
 ### 2. Observe State in Composables
