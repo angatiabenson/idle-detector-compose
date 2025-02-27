@@ -77,6 +77,7 @@ fun TestDialog(onDismiss: () -> Unit) {
         confirmButton = {
             Button(
                 onClick = {
+                    // Invoke the idle reset lambda
                     idleReset?.invoke()
                     onDismiss()
                 }
