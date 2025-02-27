@@ -22,7 +22,7 @@ Add to your `build.gradle.kts`:
 
 ```kotlin  
 dependencies {  
-    implementation("io.github.angatiabenson:idle-detector-compose:0.0.1") 
+    implementation("io.github.angatiabenson:idle-detector-compose:0.0.2") 
 }  
 ```  
 
@@ -60,6 +60,42 @@ fun HomeScreen() {
     // Your screen content 
 }  
 ```  
+
+### 3. Reset Idle Timer from Dialogs or Popups
+
+The new `LocalIdleReset` CompositionLocal allows you to reset the idle timer manually. For example, in a dialog:
+
+```kotlin
+@Composable
+fun TestDialog(onDismiss: () -> Unit) {
+    // Capture the idle reset lambda from the CompositionLocal
+    val idleReset = LocalIdleReset.current
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Test Dialog") },
+        text = { Text("Click confirm to reset idle timer.") },
+        confirmButton = {
+            Button(
+                onClick = {
+                    // Invoke the idle reset lambda
+                    idleReset?.invoke()
+                    onDismiss()
+                }
+            ) {
+                Text("Confirm")
+            }
+        },
+        dismissButton = {
+            OutlinedButton(
+                onClick = onDismiss
+            ) {
+                Text("Dismiss")
+            }
+        }
+    )
+}
+
+```
 ## API Reference 📚
 
 ### IdleDetectorProvider Parameters

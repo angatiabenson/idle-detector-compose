@@ -9,7 +9,10 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -93,9 +96,14 @@ fun IdleDetectorProvider(
         // Create an observer that starts the detector on resume and stops it on pause.
         val observer = LifecycleEventObserver { _, lifecycleEvent ->
             when (lifecycleEvent) {
-                Lifecycle.Event.ON_RESUME -> idleDetector.start()
+                Lifecycle.Event.ON_RESUME -> {
+                    idleDetector.start()
+                    // Optionally reset on resume:
+                    idleDetector.registerInteraction()
+                }
+
                 Lifecycle.Event.ON_PAUSE -> idleDetector.stop()
-                else -> {} // No action for other lifecycle events.
+                else -> {}
             }
         }
         // Add the observer to the lifecycle.
@@ -118,20 +126,24 @@ fun IdleDetectorProvider(
     // Provide the idle state to the composition via a CompositionLocal.
     // This allows child composables to access the idle state if needed.
     CompositionLocalProvider(
-        LocalIdleDetectorState provides idleDetector.isIdle
+        LocalIdleDetectorState provides idleDetector.isIdle,
+        LocalIdleReset provides { idleDetector.registerInteraction() }
     ) {
         // Wrap the content in a Box with a pointerInput modifier to intercept pointer events.
         // The pointerInput block runs continuously, awaiting any pointer event and registering an interaction.
         Box(
             modifier = Modifier
                 .fillMaxSize()
+                // Listen for key events (hardware keys, D-pad, etc.)
+                .onPreviewKeyEvent {
+                    idleDetector.registerInteraction()
+                    false // Allow the event to propagate to focused child components
+                }
+                // Listen for pointer events (taps, swipes, etc.)
                 .pointerInput(Unit) {
-                    // Use the pointer input scope to await pointer events.
                     awaitPointerEventScope {
                         while (true) {
-                            // Await any pointer event. This does not consume the event.
-                            awaitPointerEvent()
-                            // Register the interaction to reset the idle timeout.
+                            awaitPointerEvent(PointerEventPass.Final)
                             idleDetector.registerInteraction()
                         }
                     }
@@ -139,6 +151,7 @@ fun IdleDetectorProvider(
         ) {
             content()
         }
+
     }
 }
 
@@ -150,3 +163,10 @@ fun IdleDetectorProvider(
 val LocalIdleDetectorState = staticCompositionLocalOf<StateFlow<Boolean>> {
     MutableStateFlow(false)
 }
+
+/**
+ * CompositionLocal to expose a lambda that resets the idle timer.
+ * This allows any composable (including dialogs and popups) to manually register an interaction.
+ */
+val LocalIdleReset = staticCompositionLocalOf<(() -> Unit)?> { null }
+
