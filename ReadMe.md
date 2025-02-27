@@ -123,7 +123,7 @@ fun TestDialog(onDismiss: () -> Unit) {
 
 | Version | Compose | Kotlin | Min SDK |  
 |---------|---------|--------|---------|  
-| 1.0.0   | 1.5.0+  | 1.9.0+ | 21      |  
+| 0.0.2   | 1.5.0+  | 1.9.0+ | 21      |  
 
 ## License 📄
 ```text  
