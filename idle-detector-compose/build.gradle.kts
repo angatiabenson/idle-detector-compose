@@ -42,7 +42,7 @@ android {
 }
 
 mavenPublishing {
-    coordinates("io.github.angatiabenson", "idle-detector-compose", "0.0.2")
+    coordinates("io.github.angatiabenson", "idle-detector-compose", "0.0.3")
 
     pom {
         name.set("Idle Detector Compose")
@@ -91,5 +91,9 @@ dependencies {
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
+
+    implementation(libs.androidx.work.runtime.ktx) // For background tasks
+    implementation(libs.androidx.lifecycle.runtime.ktx) // For lifecycle awareness
+    implementation(libs.androidx.lifecycle.runtime.compose) // For LocalLifecycleOwner
 
 }

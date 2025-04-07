@@ -42,7 +42,7 @@ fun AppContent() {
     // State to control the visibility of the dialog.
     var showDialog by remember { mutableStateOf(false) }
     // Observe the idle state (true if idle, false if active).
-    val isSessionIdle by LocalIdleDetectorState.current.collectAsState()
+    val isSessionIdle by LocalIdleDetectorState.current
     val idleReset = LocalIdleReset.current
 
 

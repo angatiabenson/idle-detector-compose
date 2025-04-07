@@ -1,12 +1,18 @@
 package ke.co.banit.idle_detector_compose
 
+import android.content.Context
+import android.util.Log
+import ke.co.banit.idle_detector_compose.Utils.TAG
+import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlin.time.Duration
@@ -21,112 +27,141 @@ import kotlin.time.Duration
  */
 
 /**
- * IdleDetector is a utility class that monitors user interactions and determines if the user
- * has been inactive for a specified timeout period.
+ * IdleDetector is responsible for monitoring user activity to determine whether the application is idle.
+ * It periodically polls the source-of-truth timestamp for the last user interaction and compares it against
+ * a configured timeout. The result (idle or not) is exposed as a read-only StateFlow.
  *
- * This class is designed to be used in a Jetpack Compose environment where idle detection
- * is needed (for example, for auto-logout or to trigger specific UI events after a period
- * of inactivity). It leverages Kotlin coroutines and StateFlow to periodically poll for
- * inactivity and expose the current idle state.
- *
- * ### Dependencies:
- * - **Kotlin Coroutines**: Used for asynchronous polling via [CoroutineScope], [Job],
- *   [Dispatchers.Main], and [delay]. The [SupervisorJob] is combined with the main dispatcher
- *   to ensure that failures in this scope do not cancel sibling coroutines.
- * - **Kotlinx.coroutines.flow.StateFlow**: Used to expose the idle state (_isIdle) to observers
- *   in a reactive manner.
- * - **Kotlin Duration**: Represents both the [timeout] duration (the period after which the user
- *   is considered idle) and the [pollingInterval] (how frequently the detector checks for inactivity).
- *
- * @property timeout The duration after which the user is considered idle if no interaction is registered.
- * @property pollingInterval The interval at which the detector polls to check if the user is idle.
+ * @param timeout Duration defining how long the application must be inactive to be considered idle.
+ * @param pollingInterval Duration that specifies how frequently to check the idle state.
+ * @param getLastInteractionTimestamp Function that returns the timestamp of the last user interaction.
  */
 internal class IdleDetector(
     private val timeout: Duration,
     private val pollingInterval: Duration,
+    private val getLastInteractionTimestamp: () -> Long, // Function to get the source-of-truth timestamp
 ) {
-    /**
-     * Records the timestamp (in milliseconds) of the most recent user interaction.
-     * This value is updated whenever [registerInteraction] is called.
-     */
-    private var lastInteraction = System.currentTimeMillis()
-
-    /**
-     * A [MutableStateFlow] that holds the current idle state.
-     * - `false` indicates that the user is active.
-     * - `true` indicates that the user has been idle for at least [timeout] duration.
-     */
+    // Internal mutable state representing whether the app is idle.
     private val _isIdle = MutableStateFlow(false)
+    // Publicly exposed read-only state flow for observing idle state.
+    val isIdle: StateFlow<Boolean> = _isIdle.asStateFlow()
+
+    // Job used for the polling coroutine. Helps control the polling lifecycle.
+    private var pollingJob: Job? = null
+
+    // Create a CoroutineScope using the Main dispatcher with a SupervisorJob so that failures in one child
+    // do not cancel the entire scope. The scope is also named for easier debugging.
+    private val scope =
+        CoroutineScope(Dispatchers.Main + SupervisorJob() + CoroutineName("IdleDetectorScope"))
 
     /**
-     * A read-only view of the idle state exposed as a [StateFlow].
-     * Other components can observe this to react when the user becomes idle.
-     */
-    val isIdle: StateFlow<Boolean> = _isIdle
-
-    /**
-     * Holds the reference to the currently active polling job.
-     * If non-null, it indicates that the idle detection polling is currently running.
-     */
-    private var job: Job? = null
-
-    /**
-     * A dedicated [CoroutineScope] for running the idle detection polling loop.
-     * This scope uses the main thread dispatcher ([Dispatchers.Main]) and combines it with a
-     * [SupervisorJob] to prevent cancellation of sibling coroutines if one fails.
+     * Starts the polling process to monitor the idle state.
      *
-     * **Note:** The scope is not cancelled automatically by calling [stop]. If you plan to create
-     * many instances of [IdleDetector] over time, ensure to cancel the scope when it's no longer needed.
+     * If polling is already active, it logs a message and exits.
+     * It first performs an immediate idle state check and then launches a coroutine that repeatedly checks
+     * the idle state at intervals defined by [pollingInterval].
      */
-    private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+    fun startPolling() {
+        // Check if a polling job is already running to avoid duplicates.
+        if (pollingJob?.isActive == true) {
+            Log.d(TAG, "Polling already active.")
+            return
+        }
+        // Stop any existing polling before starting a new one.
+        stopPolling()
+        Log.d(
+            TAG,
+            "Starting foreground polling. Timeout: ${timeout.inWholeMilliseconds}ms, Interval: ${pollingInterval.inWholeMilliseconds}ms"
+        )
 
-    /**
-     * Starts the idle detection process.
-     *
-     * This method cancels any existing polling job before launching a new one.
-     * The polling job runs in a loop while active, checking at every [pollingInterval] whether
-     * the elapsed time since the last interaction exceeds [timeout]. If so, the idle state is set to `true`.
-     *
-     * **Usage:** Call this method when the detector should start monitoring for user inactivity.
-     */
-    fun start() {
-        // Cancel any existing polling job to avoid multiple concurrent jobs.
-        job?.cancel()
-        job = scope.launch {
-            // Continuously poll while the coroutine is active.
+        // Perform an immediate check of the idle state.
+        checkAndUpdateIdleState()
+
+        // Launch a coroutine to periodically check the idle state.
+        pollingJob = scope.launch {
             while (isActive) {
-                val elapsed = System.currentTimeMillis() - lastInteraction
-                // Update the idle state: true if elapsed time exceeds the timeout.
-                _isIdle.value = elapsed >= timeout.inWholeMilliseconds
-                // Wait for the specified polling interval before checking again.
                 delay(pollingInterval.inWholeMilliseconds)
+                checkAndUpdateIdleState()
             }
+        }
+        // Log completion or cancellation of the polling job for debugging.
+        pollingJob?.invokeOnCompletion { throwable ->
+            Log.d(TAG, "Polling job completed. Reason: $throwable")
         }
     }
 
     /**
-     * Stops the idle detection process.
+     * Checks and updates the idle state based on the elapsed time since the last user interaction.
      *
-     * This method cancels the current polling job (if any) and resets the idle state to `false`.
-     * It should be called when the idle detection is no longer required (for example, during
-     * a lifecycle pause event).
+     * The method performs the following:
+     * - Retrieves the last interaction timestamp.
+     * - Calculates the elapsed time since the last interaction.
+     * - Compares the elapsed time with the configured [timeout].
+     * - Updates the internal idle state if a change is detected.
      */
-    fun stop() {
-        job?.cancel()
-        _isIdle.value = false
+    private fun checkAndUpdateIdleState() {
+        // Get the timestamp of the last recorded user interaction.
+        val lastInteraction = getLastInteractionTimestamp()
+        if (lastInteraction == 0L) {
+            // If no interaction is recorded yet, assume the app is active.
+            // Alternatively, you could set idle state here based on different logic.
+            if (_isIdle.value) {
+                Log.d(TAG, "checkAndUpdateIdleState: No interaction time, setting idle state to false.")
+                _isIdle.value = false
+            }
+            return
+        }
+
+        // Compute the elapsed time since the last interaction.
+        val elapsed = System.currentTimeMillis() - lastInteraction
+        // Determine if the elapsed time meets or exceeds the idle timeout threshold.
+        val currentlyIdle = elapsed >= timeout.inWholeMilliseconds
+        Log.d(
+            TAG,
+            "Polling Check: Now=${System.currentTimeMillis()}, LastInteraction=$lastInteraction, " +
+                    "Elapsed=$elapsed, Timeout=${timeout.inWholeMilliseconds}, IsIdle=$currentlyIdle"
+        )
+
+        // Update the idle state only if it has changed to avoid redundant emissions.
+        if (_isIdle.value != currentlyIdle) {
+            Log.d(TAG, "checkAndUpdateIdleState: Idle state changing to $currentlyIdle (Elapsed: ${elapsed}ms)")
+            _isIdle.value = currentlyIdle
+        }
     }
 
     /**
-     * Registers a user interaction.
+     * Reports that a user interaction has occurred.
      *
-     * Updates [lastInteraction] to the current system time. If the detector is in an idle state,
-     * it resets the idle flag to `false` since an interaction indicates that the user is active.
-     *
-     * **Usage:** This method should be called whenever a user interaction (e.g., a tap or swipe)
-     * is detected.
+     * This method should be called externally when an interaction happens to immediately reset the idle state to active.
+     * It does not update the interaction timestamp; updating is handled by the external source.
      */
-    fun registerInteraction() {
-        lastInteraction = System.currentTimeMillis()
-        if (_isIdle.value) _isIdle.value = false
+    fun reportInteractionOccurred() {
+        Log.d(TAG, "Interaction reported. Setting idle state to false.")
+        if (_isIdle.value) {
+            _isIdle.value = false
+        }
+        // Note: The timestamp update is managed externally.
+    }
+
+    /**
+     * Stops the polling process by cancelling the polling coroutine if it is active.
+     *
+     * This prevents further idle state checks. The idle state is not reset here because it depends on the persisted interaction time.
+     */
+    fun stopPolling() {
+        if (pollingJob?.isActive == true) {
+            Log.d(TAG, "Stopping foreground polling.")
+            pollingJob?.cancel()
+        }
+        pollingJob = null
+    }
+
+    /**
+     * Cleans up the coroutine scope used for idle detection.
+     *
+     * This should be called when the IdleDetector is no longer needed to avoid memory leaks.
+     */
+    fun cleanupScope() {
+        Log.d(TAG, "Cleaning up IdleDetector coroutine scope.")
+        scope.cancel()
     }
 }
