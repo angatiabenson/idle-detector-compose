@@ -1,10 +1,8 @@
 package ke.co.banit.idle_detector_compose
 
 import android.content.Context
-import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import ke.co.banit.idle_detector_compose.Utils.TAG
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.concurrent.TimeUnit
@@ -80,14 +78,14 @@ internal class BackgroundTimeoutWorker(
         val conditionMet = lastActiveTimestamp > 0 && (currentTime - lastActiveTimestamp >= timeoutMillis)
 
         // Log the current state of the worker for debugging purposes.
-        Log.d(TAG, "Worker running: Now=${currentTime}, LastInteraction=${lastActiveTimestamp}, Timeout=${timeoutMillis}ms, ConditionMet=$conditionMet")
+        //Log.d(TAG, "Worker running: Now=${currentTime}, LastInteraction=${lastActiveTimestamp}, Timeout=${timeoutMillis}ms, ConditionMet=$conditionMet")
 
         // Set the background timeout flag based on whether the idle condition has been met.
         if (conditionMet) {
-            Log.d(TAG, "Background timeout threshold reached. Setting flag.")
+            //Log.d(TAG, "Background timeout threshold reached. Setting flag.")
             IdlePersistence.setBackgroundTimeoutTriggered(applicationContext, true)
         } else {
-            Log.d(TAG, "Background timeout threshold NOT reached.")
+            //Log.d(TAG, "Background timeout threshold NOT reached.")
             IdlePersistence.setBackgroundTimeoutTriggered(applicationContext, false)
         }
 

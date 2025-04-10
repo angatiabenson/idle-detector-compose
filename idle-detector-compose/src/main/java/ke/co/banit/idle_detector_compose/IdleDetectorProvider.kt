@@ -1,7 +1,5 @@
 package ke.co.banit.idle_detector_compose
 
-import android.content.Context
-import android.util.Log
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
@@ -14,8 +12,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.key.onPreviewKeyEvent
@@ -29,15 +25,12 @@ import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.workDataOf
-import ke.co.banit.idle_detector_compose.Utils.TAG
-import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.util.concurrent.TimeUnit
@@ -83,7 +76,7 @@ fun IdleDetectorProvider(
     val workManager = remember { WorkManager.getInstance(context) }
 
     // State: Keeps the last known interaction timestamp in milliseconds.
-    var lastInteractionTimestamp by remember { mutableStateOf(0L) }
+    var lastInteractionTimestamp by remember { mutableLongStateOf(0L) }
 
     // State: Tracks whether the app is currently idle.
     // This state is provided to downstream composables via LocalIdleDetectorState.
@@ -98,11 +91,11 @@ fun IdleDetectorProvider(
         if (initialTimestamp == 0L) {
             // If no interaction was recorded, initialize with the current system time.
             initialTimestamp = System.currentTimeMillis()
-            Log.d(TAG, "No previous interaction time found. Initializing with current time: $initialTimestamp")
+            //Log.d(TAG, "No previous interaction time found. Initializing with current time: $initialTimestamp")
             // Record the initial timestamp persistently.
             IdlePersistence.recordInteraction(context, initialTimestamp)
         } else {
-            Log.d(TAG, "Initialized with previous interaction time: $initialTimestamp")
+            //Log.d(TAG, "Initialized with previous interaction time: $initialTimestamp")
         }
         // Update the state with the initialized timestamp.
         lastInteractionTimestamp = initialTimestamp
@@ -120,19 +113,19 @@ fun IdleDetectorProvider(
         // Determine if the app should be considered idle.
         val isCurrentlyIdle = elapsed >= idleTimeout.inWholeMilliseconds
 
-        Log.d(TAG, "Idle Check: Now=$now, LastInteraction=$lastInteractionTimestamp, Elapsed=$elapsed, Timeout=${idleTimeout.inWholeMilliseconds}, IsCurrentlyIdle=$isCurrentlyIdle")
+        //Log.d(TAG, "Idle Check: Now=$now, LastInteraction=$lastInteractionTimestamp, Elapsed=$elapsed, Timeout=${idleTimeout.inWholeMilliseconds}, IsCurrentlyIdle=$isCurrentlyIdle")
 
         // Update the idle state.
         isIdleState.value = isCurrentlyIdle
 
         // If the idle condition is met and the onIdle callback has not been invoked yet, trigger it.
         if (isCurrentlyIdle && !onIdleCalled) {
-            Log.d(TAG, "Idle Check: Timeout reached. Calling onIdle.")
+            //Log.d(TAG, "Idle Check: Timeout reached. Calling onIdle.")
             onIdle()
             onIdleCalled = true
         } else if (!isCurrentlyIdle && onIdleCalled) {
             // Reset the flag if the user becomes active again.
-            Log.d(TAG, "Idle Check: Became active, resetting onIdleCalled flag.")
+            //Log.d(TAG, "Idle Check: Became active, resetting onIdleCalled flag.")
             onIdleCalled = false
         }
     }
@@ -142,7 +135,7 @@ fun IdleDetectorProvider(
     val registerInteraction: () -> Unit = remember {
         {
             val now = System.currentTimeMillis()
-            Log.d(TAG, "Interaction Registered at: $now")
+            //Log.d(TAG, "Interaction Registered at: $now")
             // Update the state with the current interaction time.
             lastInteractionTimestamp = now
             // Persist the new interaction timestamp.
@@ -151,7 +144,7 @@ fun IdleDetectorProvider(
             isIdleState.value = false
             // Reset the onIdle callback flag if it was previously set.
             if (onIdleCalled) {
-                Log.d(TAG, "Interaction reset onIdleCalled flag.")
+                //Log.d(TAG, "Interaction reset onIdleCalled flag.")
                 onIdleCalled = false
             }
             // Cancel any scheduled background worker since a new interaction has occurred.
@@ -163,45 +156,62 @@ fun IdleDetectorProvider(
     // This DisposableEffect manages the app's lifecycle events to control foreground polling and background scheduling.
     DisposableEffect(lifecycleOwner, idleTimeout) {
         // Foreground polling timer job: Runs periodic checks when the app is in the foreground.
+        val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
         var pollingTimerJob: Job? = null
 
         // Create a lifecycle observer to respond to lifecycle events.
         val observer = LifecycleEventObserver { owner, event ->
             when (event) {
+                Lifecycle.Event.ON_CREATE -> {
+                    ////Log.d(TAG, "Lifecycle: ON_CREATE")
+                    lastInteractionTimestamp = 0L
+                    isIdleState.value = false
+                    onIdleCalled = false
+                    IdlePersistence.reset(context)
+                }
+
                 Lifecycle.Event.ON_RESUME -> {
-                    Log.d(TAG, "Lifecycle: ON_RESUME")
+                    ////Log.d(TAG, "Lifecycle: ON_RESUME")
                     // Cancel any background worker when the app returns to the foreground.
                     cancelBackgroundTimeoutWorker(workManager)
 
+                    // --- Determine Initial State Based on Last Interaction ---
+                    val currentTime = System.currentTimeMillis()
+                    val timeSinceLast = currentTime - lastInteractionTimestamp
+                    val shouldBeIdleInitially = timeSinceLast >= idleTimeout.inWholeMilliseconds
+
                     // --- Check for Background Timeout Flag ---
                     // If the background worker already triggered an idle state, call onIdle immediately.
-                    val backgroundTimeoutTriggered = IdlePersistence.isBackgroundTimeoutTriggered(context)
+                    val backgroundTimeoutTriggered =
+                        IdlePersistence.isBackgroundTimeoutTriggered(context)
                     if (backgroundTimeoutTriggered) {
-                        Log.w(TAG, "ON_RESUME: Background timeout flag was set. Triggering onIdle immediately.")
+                        // //Log.w(TAG, "ON_RESUME: Background timeout flag was set. Triggering onIdle immediately.")
                         // Clear the background timeout flag.
                         IdlePersistence.setBackgroundTimeoutTriggered(context, false)
                         if (!onIdleCalled) {
                             onIdle()
                             onIdleCalled = true
                         }
-                        // Update the idle state to reflect the idle condition.
-                        isIdleState.value = true
-                        // Skip further processing.
-                        return@LifecycleEventObserver
-                    }
 
-                    // --- Start Active: Reset Timer and State on Resume ---
-                    Log.d(TAG, "ON_RESUME: Starting in active state.")
-                    val resumeTime = System.currentTimeMillis()
-                    // Treat the resume event as a user interaction.
-                    lastInteractionTimestamp = resumeTime
-                    IdlePersistence.recordInteraction(context, resumeTime)
-                    isIdleState.value = false
-                    onIdleCalled = false
+                    }else {
+                        isIdleState.value = shouldBeIdleInitially
+
+                        if (shouldBeIdleInitially) {
+                            // App was already idle or became idle during the pause
+                            if (!onIdleCalled) {
+                                ////Log.d(TAG, "ON_RESUME: Detected idle state on resume. Calling onIdle.")
+                                onIdle()
+                                onIdleCalled = true
+                            }
+                        } else {
+                            // App is genuinely active on resume
+                            onIdleCalled = false
+                        }
+                    }
 
                     // Start a foreground polling timer to force regular state re-checks.
                     pollingTimerJob?.cancel()
-                    pollingTimerJob = CoroutineScope(Dispatchers.Main).launch {
+                    pollingTimerJob = scope.launch {
                         while (isActive) {
                             delay(checkInterval.inWholeMilliseconds)
                             // Re-evaluate the idle state without updating the last interaction timestamp.
@@ -209,42 +219,48 @@ fun IdleDetectorProvider(
                             val timeSinceLast = current - lastInteractionTimestamp
                             val shouldBeIdle = timeSinceLast >= idleTimeout.inWholeMilliseconds
                             if (isIdleState.value != shouldBeIdle) {
-                                Log.d(TAG, "Polling timer forcing state update to: $shouldBeIdle")
+                                //Log.d(TAG, "Polling timer forcing state update to: $shouldBeIdle")
                                 isIdleState.value = shouldBeIdle
                             }
                             // Trigger the onIdle callback if idle state is detected and hasn't been handled yet.
                             if (shouldBeIdle && !onIdleCalled) {
-                                Log.d(TAG, "Polling timer detected idle. Calling onIdle.")
+                                //Log.d(TAG, "Polling timer detected idle. Calling onIdle.")
                                 onIdle()
                                 onIdleCalled = true
                             }
                         }
                     }
                 }
+
                 Lifecycle.Event.ON_PAUSE -> {
-                    Log.d(TAG, "Lifecycle: ON_PAUSE")
+                    //Log.d(TAG, "Lifecycle: ON_PAUSE")
                     // Stop the foreground polling timer when the app moves to the background.
                     pollingTimerJob?.cancel()
-
                     // Schedule a background worker to handle idle state detection while the app is in the background.
-                    scheduleBackgroundTimeoutWorker(workManager, idleTimeout, lastInteractionTimestamp)
+                    scheduleBackgroundTimeoutWorker(
+                        workManager,
+                        idleTimeout,
+                        lastInteractionTimestamp
+                    )
                 }
+
                 Lifecycle.Event.ON_DESTROY -> {
-                    Log.d(TAG, "Lifecycle: ON_DESTROY")
+                    //Log.d(TAG, "Lifecycle: ON_DESTROY")
                     // Cancel the polling timer and background worker on destruction.
-                    pollingTimerJob?.cancel()
-                    cancelBackgroundTimeoutWorker(workManager)
+                    scope.cancel()
+                    cancelBackgroundTimeoutWorker (workManager)
                 }
+
                 else -> {}
             }
         }
         // Register the observer with the lifecycle.
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose {
-            Log.d(TAG, "DisposableEffect: onDispose")
+            //Log.d(TAG, "DisposableEffect: onDispose")
             // Clean up by removing the observer and cancelling the timer and worker.
             lifecycleOwner.lifecycle.removeObserver(observer)
-            pollingTimerJob?.cancel()
+            scope.cancel()
             cancelBackgroundTimeoutWorker(workManager)
         }
     }
@@ -294,10 +310,10 @@ fun IdleDetectorProvider(
 private fun scheduleBackgroundTimeoutWorker(
     workManager: WorkManager,
     timeout: Duration,
-    lastInteractionTime: Long // Explicitly pass the last interaction timestamp.
+    lastInteractionTime: Long, // Explicitly pass the last interaction timestamp.
 ) {
     if (lastInteractionTime == 0L) {
-        Log.w(TAG, "Skipping background worker schedule: No valid last interaction time.")
+        //Log.w(TAG, "Skipping background worker schedule: No valid last interaction time.")
         return
     }
 
@@ -308,11 +324,11 @@ private fun scheduleBackgroundTimeoutWorker(
     // Calculate the delay before the idle timeout should trigger.
     val remainingDelay = (timeoutMillis - elapsedMillis).coerceAtLeast(0)
 
-    Log.d(TAG, "Scheduling Worker: Now=${currentTime}, LastInteraction=${lastInteractionTime}, Elapsed=${elapsedMillis}ms, Timeout=${timeoutMillis}ms, CalculatedDelay=${remainingDelay}ms")
+    //Log.d(TAG, "Scheduling Worker: Now=${currentTime}, LastInteraction=${lastInteractionTime}, Elapsed=${elapsedMillis}ms, Timeout=${timeoutMillis}ms, CalculatedDelay=${remainingDelay}ms")
 
     // If the timeout is already met, skip scheduling the worker.
     if (remainingDelay <= 0 && elapsedMillis >= timeoutMillis) {
-        Log.d(TAG, "Skipping worker schedule: Timeout already met or exceeded.")
+        //Log.d(TAG, "Skipping worker schedule: Timeout already met or exceeded.")
         return
     }
 

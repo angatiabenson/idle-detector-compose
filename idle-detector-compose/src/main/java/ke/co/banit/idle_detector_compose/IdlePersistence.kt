@@ -2,9 +2,8 @@ package ke.co.banit.idle_detector_compose
 
 import android.content.Context
 import android.content.SharedPreferences
-import android.util.Log
 import androidx.core.content.edit
-import ke.co.banit.idle_detector_compose.Utils.TAG
+import ke.co.banit.idle_detector_compose.IdlePersistence.PREFS_NAME
 
 /**
  * ------------------------------------------------------------------------
@@ -58,7 +57,7 @@ internal object IdlePersistence {
      * @param timestamp The timestamp (in milliseconds) of the recorded interaction.
      */
     fun recordInteraction(context: Context, timestamp: Long) {
-        Log.d(TAG, "Recording interaction time: $timestamp")
+        //Log.d(TAG, "Recording interaction time: $timestamp")
         getPrefs(context).edit {
             putLong(KEY_LAST_ACTIVE_TIMESTAMP, timestamp)
                 .putBoolean(KEY_BACKGROUND_TIMEOUT_TRIGGERED, false) // Reset flag on new interaction
@@ -73,7 +72,7 @@ internal object IdlePersistence {
      */
     fun getLastInteractionTimestamp(context: Context): Long {
         val timestamp = getPrefs(context).getLong(KEY_LAST_ACTIVE_TIMESTAMP, 0L)
-        Log.d(TAG, "Retrieved last interaction time: $timestamp")
+        //Log.d(TAG, "Retrieved last interaction time: $timestamp")
         return timestamp
     }
 
@@ -86,7 +85,7 @@ internal object IdlePersistence {
      * @param triggered A Boolean indicating whether the background timeout was triggered.
      */
     fun setBackgroundTimeoutTriggered(context: Context, triggered: Boolean) {
-        Log.d(TAG, "Setting background timeout triggered flag: $triggered")
+        //Log.d(TAG, "Setting background timeout triggered flag: $triggered")
         getPrefs(context).edit { putBoolean(KEY_BACKGROUND_TIMEOUT_TRIGGERED, triggered) }
     }
 

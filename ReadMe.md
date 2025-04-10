@@ -22,7 +22,7 @@ Add to your `build.gradle.kts`:
 
 ```kotlin  
 dependencies {  
-    implementation("io.github.angatiabenson:idle-detector-compose:0.0.2") 
+    implementation("io.github.angatiabenson:idle-detector-compose:0.0.4") 
 }  
 ```  
 

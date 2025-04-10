@@ -1,8 +1,5 @@
 package ke.co.banit.idle_detector_compose
 
-import android.content.Context
-import android.util.Log
-import ke.co.banit.idle_detector_compose.Utils.TAG
 import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -63,15 +60,12 @@ internal class IdleDetector(
     fun startPolling() {
         // Check if a polling job is already running to avoid duplicates.
         if (pollingJob?.isActive == true) {
-            Log.d(TAG, "Polling already active.")
+            //Log.d(TAG, "Polling already active.")
             return
         }
         // Stop any existing polling before starting a new one.
         stopPolling()
-        Log.d(
-            TAG,
-            "Starting foreground polling. Timeout: ${timeout.inWholeMilliseconds}ms, Interval: ${pollingInterval.inWholeMilliseconds}ms"
-        )
+        //Log.d( TAG, "Starting foreground polling. Timeout: ${timeout.inWholeMilliseconds}ms, Interval: ${pollingInterval.inWholeMilliseconds}ms" )
 
         // Perform an immediate check of the idle state.
         checkAndUpdateIdleState()
@@ -85,7 +79,7 @@ internal class IdleDetector(
         }
         // Log completion or cancellation of the polling job for debugging.
         pollingJob?.invokeOnCompletion { throwable ->
-            Log.d(TAG, "Polling job completed. Reason: $throwable")
+            //Log.d(TAG, "Polling job completed. Reason: $throwable")
         }
     }
 
@@ -105,7 +99,7 @@ internal class IdleDetector(
             // If no interaction is recorded yet, assume the app is active.
             // Alternatively, you could set idle state here based on different logic.
             if (_isIdle.value) {
-                Log.d(TAG, "checkAndUpdateIdleState: No interaction time, setting idle state to false.")
+                //Log.d(TAG, "checkAndUpdateIdleState: No interaction time, setting idle state to false.")
                 _isIdle.value = false
             }
             return
@@ -115,15 +109,11 @@ internal class IdleDetector(
         val elapsed = System.currentTimeMillis() - lastInteraction
         // Determine if the elapsed time meets or exceeds the idle timeout threshold.
         val currentlyIdle = elapsed >= timeout.inWholeMilliseconds
-        Log.d(
-            TAG,
-            "Polling Check: Now=${System.currentTimeMillis()}, LastInteraction=$lastInteraction, " +
-                    "Elapsed=$elapsed, Timeout=${timeout.inWholeMilliseconds}, IsIdle=$currentlyIdle"
-        )
+        //Log.d( TAG, "Polling Check: Now=${System.currentTimeMillis()}, LastInteraction=$lastInteraction, " + "Elapsed=$elapsed, Timeout=${timeout.inWholeMilliseconds}, IsIdle=$currentlyIdle" )
 
         // Update the idle state only if it has changed to avoid redundant emissions.
         if (_isIdle.value != currentlyIdle) {
-            Log.d(TAG, "checkAndUpdateIdleState: Idle state changing to $currentlyIdle (Elapsed: ${elapsed}ms)")
+            //Log.d(TAG, "checkAndUpdateIdleState: Idle state changing to $currentlyIdle (Elapsed: ${elapsed}ms)")
             _isIdle.value = currentlyIdle
         }
     }
@@ -135,7 +125,7 @@ internal class IdleDetector(
      * It does not update the interaction timestamp; updating is handled by the external source.
      */
     fun reportInteractionOccurred() {
-        Log.d(TAG, "Interaction reported. Setting idle state to false.")
+        //Log.d(TAG, "Interaction reported. Setting idle state to false.")
         if (_isIdle.value) {
             _isIdle.value = false
         }
@@ -149,7 +139,7 @@ internal class IdleDetector(
      */
     fun stopPolling() {
         if (pollingJob?.isActive == true) {
-            Log.d(TAG, "Stopping foreground polling.")
+            //Log.d(TAG, "Stopping foreground polling.")
             pollingJob?.cancel()
         }
         pollingJob = null
@@ -161,7 +151,7 @@ internal class IdleDetector(
      * This should be called when the IdleDetector is no longer needed to avoid memory leaks.
      */
     fun cleanupScope() {
-        Log.d(TAG, "Cleaning up IdleDetector coroutine scope.")
+        //Log.d(TAG, "Cleaning up IdleDetector coroutine scope.")
         scope.cancel()
     }
 }
