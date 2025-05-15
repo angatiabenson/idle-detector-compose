@@ -51,6 +51,31 @@ import kotlin.time.Duration.Companion.seconds
 val LocalIdleDetectorState = compositionLocalOf<State<Boolean>> { mutableStateOf(false) }
 val LocalIdleReset = compositionLocalOf<(() -> Unit)?> { null }
 
+
+/**
+ * Backwards-compatible overload for existing users.
+ */
+@Deprecated(
+    message = "Use onIdle callback with the `fromBackground` flag",
+    replaceWith = ReplaceWith(
+        "IdleDetectorProvider(idleTimeout, checkInterval, { fromBackground -> onIdle() }, content)"
+    )
+)
+@Composable
+fun IdleDetectorProvider(
+    idleTimeout: Duration,
+    checkInterval: Duration = 1.seconds,
+    onIdle: () -> Unit,
+    content: @Composable () -> Unit,
+) {
+    IdleDetectorProvider(
+        idleTimeout = idleTimeout,
+        checkInterval = checkInterval,
+        onIdleWithOrigin = { _: Boolean -> onIdle() },
+        content = content
+    )
+}
+
 /**
  * IdleDetectorProvider is a Composable that monitors user interactions to detect idle state.
  *
@@ -59,14 +84,14 @@ val LocalIdleReset = compositionLocalOf<(() -> Unit)?> { null }
  *
  * @param idleTimeout The duration after which the app should be considered idle if no interaction occurs.
  * @param checkInterval The interval used by the foreground polling mechanism to check for idleness (default is 1 second).
- * @param onIdle A callback function to be invoked when the idle timeout is reached.
+ * @param onIdleWithOrigin Callback with a boolean: true if triggered from background resume, false otherwise
  * @param content The composable content that is wrapped by this provider.
  */
 @Composable
 fun IdleDetectorProvider(
     idleTimeout: Duration,
-    checkInterval: Duration = 1.seconds, // Foreground polling interval
-    onIdle: () -> Unit, // Callback when timeout occurs
+    checkInterval: Duration = 1.seconds,
+    onIdleWithOrigin: (fromBackground: Boolean) -> Unit,
     content: @Composable () -> Unit,
 ) {
     // Retrieve the application context and lifecycle owner for lifecycle-aware operations.
@@ -121,7 +146,7 @@ fun IdleDetectorProvider(
         // If the idle condition is met and the onIdle callback has not been invoked yet, trigger it.
         if (isCurrentlyIdle && !onIdleCalled) {
             //Log.d(TAG, "Idle Check: Timeout reached. Calling onIdle.")
-            onIdle()
+            onIdleWithOrigin(false)
             onIdleCalled = true
         } else if (!isCurrentlyIdle && onIdleCalled) {
             // Reset the flag if the user becomes active again.
@@ -189,18 +214,18 @@ fun IdleDetectorProvider(
                         // Clear the background timeout flag.
                         IdlePersistence.setBackgroundTimeoutTriggered(context, false)
                         if (!onIdleCalled) {
-                            onIdle()
+                            onIdleWithOrigin(true)
                             onIdleCalled = true
                         }
 
-                    }else {
+                    } else {
                         isIdleState.value = shouldBeIdleInitially
 
                         if (shouldBeIdleInitially) {
                             // App was already idle or became idle during the pause
                             if (!onIdleCalled) {
                                 ////Log.d(TAG, "ON_RESUME: Detected idle state on resume. Calling onIdle.")
-                                onIdle()
+                                onIdleWithOrigin(false)
                                 onIdleCalled = true
                             }
                         } else {
@@ -225,7 +250,7 @@ fun IdleDetectorProvider(
                             // Trigger the onIdle callback if idle state is detected and hasn't been handled yet.
                             if (shouldBeIdle && !onIdleCalled) {
                                 //Log.d(TAG, "Polling timer detected idle. Calling onIdle.")
-                                onIdle()
+                                onIdleWithOrigin(false)
                                 onIdleCalled = true
                             }
                         }
@@ -248,7 +273,7 @@ fun IdleDetectorProvider(
                     //Log.d(TAG, "Lifecycle: ON_DESTROY")
                     // Cancel the polling timer and background worker on destruction.
                     scope.cancel()
-                    cancelBackgroundTimeoutWorker (workManager)
+                    cancelBackgroundTimeoutWorker(workManager)
                 }
 
                 else -> {}
