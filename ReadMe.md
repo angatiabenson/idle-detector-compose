@@ -109,12 +109,12 @@ fun TestDialog(onDismiss: () -> Unit) {
 
 ### IdleDetectorProvider Parameters
 
-| Parameter          | Type          | Default      | Description                                                                        |  
-|--------------------|---------------|--------------|------------------------------------------------------------------------------------|  
-| `timeout`          | `Duration`    | **Required** | Duration until idle state triggers                                                 |  
-| `onIdleWithOrigin` | `() -> Unit`  | **Required** | Callback with a boolean: true if triggered from background resume, false otherwise |  
-| `checkInterval`    | `Duration`    | 1.second     | How often to check for inactivity                                                  |  
-| `content`          | `@Composable` | **Required** | Your app content                                                                   |  
+| Parameter          | Type                | Default      | Description                                                                        |  
+|--------------------|---------------------|--------------|------------------------------------------------------------------------------------|  
+| `timeout`          | `Duration`          | **Required** | Duration until idle state triggers                                                 |  
+| `onIdleWithOrigin` | `(Boolean) -> Unit` | **Required** | Callback with a boolean: true if triggered from background resume, false otherwise |  
+| `checkInterval`    | `Duration`          | 1.second     | How often to check for inactivity                                                  |  
+| `content`          | `@Composable`       | **Required** | Your app content                                                                   |  
 
 ## Troubleshooting 🔍
 
@@ -135,9 +135,9 @@ fun TestDialog(onDismiss: () -> Unit) {
 
 ## Compatibility 🤝
 
-| Version | Compose | Kotlin | Min SDK |  
-|---------|---------|--------|---------|  
-| 0.0.5   | 1.5.0+  | 1.9.0+ | 21      |  
+| Version | Kotlin | Min SDK |  
+|---------|--------|---------|  
+| 0.0.5   | 1.9.0+ | 21      |  
 
 ## License 📄
 
@@ -156,6 +156,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and  
 limitations under the License.  
 ```
+
 ---  
 
 **Happy coding!** 🎉 If you encounter any issues,
