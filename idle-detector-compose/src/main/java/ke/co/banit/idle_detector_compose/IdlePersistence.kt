@@ -36,7 +36,7 @@ internal object IdlePersistence {
     private const val KEY_LAST_ACTIVE_TIMESTAMP = "lastActiveTimestampMillis"
 
     // Key for storing the flag that indicates whether a background timeout has been triggered.
-    private const val KEY_BACKGROUND_TIMEOUT_TRIGGERED = "backgroundTimeoutTriggered" // Keep this for worker communication
+    private const val KEY_BACKGROUND_TIMEOUT_TRIGGERED = "backgroundTimeoutTriggered"
 
     /**
      * Retrieves the SharedPreferences instance for idle detector persistence.
@@ -60,7 +60,10 @@ internal object IdlePersistence {
         //Log.d(TAG, "Recording interaction time: $timestamp")
         getPrefs(context).edit {
             putLong(KEY_LAST_ACTIVE_TIMESTAMP, timestamp)
-                .putBoolean(KEY_BACKGROUND_TIMEOUT_TRIGGERED, false) // Reset flag on new interaction
+                .putBoolean(
+                    KEY_BACKGROUND_TIMEOUT_TRIGGERED,
+                    false
+                ) // Reset flag on new interaction
         }
     }
 
@@ -85,8 +88,10 @@ internal object IdlePersistence {
      * @param triggered A Boolean indicating whether the background timeout was triggered.
      */
     fun setBackgroundTimeoutTriggered(context: Context, triggered: Boolean) {
-        //Log.d(TAG, "Setting background timeout triggered flag: $triggered")
+        //println("Setting background timeout triggered flag: $triggered")
         getPrefs(context).edit { putBoolean(KEY_BACKGROUND_TIMEOUT_TRIGGERED, triggered) }
+        val isBackgroundTimeoutTriggered = isBackgroundTimeoutTriggered(context)
+        // println("Background timeout triggered flag is now: $isBackgroundTimeoutTriggered")
     }
 
     /**
@@ -96,7 +101,9 @@ internal object IdlePersistence {
      * @return True if the background timeout was triggered, false otherwise.
      */
     fun isBackgroundTimeoutTriggered(context: Context): Boolean {
-        return getPrefs(context).getBoolean(KEY_BACKGROUND_TIMEOUT_TRIGGERED, false)
+        val value = getPrefs(context).getBoolean(KEY_BACKGROUND_TIMEOUT_TRIGGERED, false)
+        println("Checking if background timeout triggered: $value")
+        return value
     }
 
     /**
@@ -111,6 +118,7 @@ internal object IdlePersistence {
             remove(KEY_LAST_ACTIVE_TIMESTAMP)
                 .remove(KEY_BACKGROUND_TIMEOUT_TRIGGERED)
         }
+        println("is BackgroundTimeoutTriggered after reset: ${isBackgroundTimeoutTriggered(context)}")
     }
 }
 

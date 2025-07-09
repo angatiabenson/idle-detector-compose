@@ -1,16 +1,16 @@
-import com.vanniktech.maven.publish.SonatypeHost
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
-   // id("module.publication")
-    id("com.vanniktech.maven.publish") version "0.30.0"
+    // id("module.publication")
+    id("com.vanniktech.maven.publish") version "0.33.0"
 }
 
 android {
     namespace = "ke.co.banit.idle_detector_compose"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         minSdk = 21
@@ -32,8 +32,10 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
-    kotlinOptions {
-        jvmTarget = "11"
+    kotlin {
+        compilerOptions {
+            jvmTarget = JvmTarget.JVM_11
+        }
     }
 
     buildFeatures {
@@ -68,7 +70,7 @@ mavenPublishing {
         }
     }
 
-    publishToMavenCentral(SonatypeHost.CENTRAL_PORTAL)
+    publishToMavenCentral()
     signAllPublications()
 }
 
@@ -80,6 +82,17 @@ dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
+
+    // Testing dependencies
+    testImplementation(libs.mockito.core)
+    testImplementation(libs.mockito.kotlin)
+    testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.androidx.work.testing)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.core)
+    testImplementation(libs.androidx.lifecycle.runtime.testing)
+    testImplementation(platform(libs.androidx.compose.bom))
+    testImplementation(libs.ui.test.junit4)
 
     // Compose BOM manages versions of Compose libraries:
     implementation(platform(libs.androidx.compose.bom))
@@ -95,5 +108,6 @@ dependencies {
     implementation(libs.androidx.work.runtime.ktx) // For background tasks
     implementation(libs.androidx.lifecycle.runtime.ktx) // For lifecycle awareness
     implementation(libs.androidx.lifecycle.runtime.compose) // For LocalLifecycleOwner
+    testImplementation(kotlin("test"))
 
 }

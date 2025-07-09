@@ -19,6 +19,7 @@ import java.util.concurrent.TimeUnit
  * or use of this file, via any medium, is strictly prohibited.
  * ------------------------------------------------------------------------
  **/
+
 /**
  * A background worker that checks if the application has been idle for a specified timeout period.
  *
