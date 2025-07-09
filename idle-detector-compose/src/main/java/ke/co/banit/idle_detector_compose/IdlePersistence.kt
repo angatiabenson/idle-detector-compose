@@ -88,10 +88,7 @@ internal object IdlePersistence {
      * @param triggered A Boolean indicating whether the background timeout was triggered.
      */
     fun setBackgroundTimeoutTriggered(context: Context, triggered: Boolean) {
-        //println("Setting background timeout triggered flag: $triggered")
         getPrefs(context).edit { putBoolean(KEY_BACKGROUND_TIMEOUT_TRIGGERED, triggered) }
-        val isBackgroundTimeoutTriggered = isBackgroundTimeoutTriggered(context)
-        // println("Background timeout triggered flag is now: $isBackgroundTimeoutTriggered")
     }
 
     /**
@@ -102,7 +99,6 @@ internal object IdlePersistence {
      */
     fun isBackgroundTimeoutTriggered(context: Context): Boolean {
         val value = getPrefs(context).getBoolean(KEY_BACKGROUND_TIMEOUT_TRIGGERED, false)
-        println("Checking if background timeout triggered: $value")
         return value
     }
 
@@ -118,7 +114,6 @@ internal object IdlePersistence {
             remove(KEY_LAST_ACTIVE_TIMESTAMP)
                 .remove(KEY_BACKGROUND_TIMEOUT_TRIGGERED)
         }
-        println("is BackgroundTimeoutTriggered after reset: ${isBackgroundTimeoutTriggered(context)}")
     }
 }
 

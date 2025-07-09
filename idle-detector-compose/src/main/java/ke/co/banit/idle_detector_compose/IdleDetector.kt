@@ -72,18 +72,6 @@ internal class IdleDetector(
         lifecycleOwner.lifecycle.addObserver(lifecycleObserver)
     }
 
-    private fun initializeTimestamp() {
-        Log.d(TAG, "Initializing last interaction timestamp")
-        var initialTimestamp = IdlePersistence.getLastInteractionTimestamp(context)
-        if (initialTimestamp == 0L) {
-            Log.d(TAG, "No previous interaction timestamp found, setting to current time")
-            initialTimestamp = System.currentTimeMillis()
-            IdlePersistence.recordInteraction(context, initialTimestamp)
-        }
-        _lastInteractionTimestamp = initialTimestamp
-        Log.d(TAG, "Last interaction timestamp initialized to: $_lastInteractionTimestamp")
-    }
-
     private fun handleCreate() {
         Log.d(TAG, "Resetting IdleDetector state")
         IdlePersistence.reset(context)
@@ -107,7 +95,7 @@ internal class IdleDetector(
         cancelBackgroundTimeoutWorker()
     }
 
-    fun checkIdleState() {
+    fun checkIdleState(isFromBackground:Boolean = false) {
         Log.d(TAG, "Checking idle state")
         val previousInteractionTimestamp = IdlePersistence.getLastInteractionTimestamp(context)
         if (previousInteractionTimestamp == 0L) return
@@ -124,7 +112,7 @@ internal class IdleDetector(
         when {
             isCurrentlyIdle && !_onIdleCalled -> {
                 Log.d(TAG, "Idle state detected, calling onIdleWithOrigin")
-                onIdleWithOrigin(false)
+                onIdleWithOrigin(isFromBackground)
                 _onIdleCalled = true
                 _isIdle = true
             }
@@ -159,16 +147,11 @@ internal class IdleDetector(
         Log.d(TAG, "Handling resume event")
         cancelBackgroundTimeoutWorker()
         val backgroundTimeoutTriggered = IdlePersistence.isBackgroundTimeoutTriggered(context)
-        println("Background timeout triggered: $backgroundTimeoutTriggered - is Idle Called: $_onIdleCalled")
 
         if (backgroundTimeoutTriggered) {
-            Log.d(TAG, "Background timeout triggered, resetting idle state")
+            Log.d(TAG, "Background timeout triggered")
             IdlePersistence.setBackgroundTimeoutTriggered(context, false)
-            if (!_onIdleCalled) {
-                Log.d(TAG, "Calling onIdleWithOrigin due to background timeout")
-                onIdleWithOrigin(true)
-                _onIdleCalled = true
-            }
+            checkIdleState(isFromBackground = true)
         } else {
             Log.d(TAG, "No background timeout triggered, resetting last interaction timestamp")
             checkIdleState()

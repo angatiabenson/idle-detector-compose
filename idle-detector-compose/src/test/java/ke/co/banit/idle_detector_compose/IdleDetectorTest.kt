@@ -1,7 +1,6 @@
 package ke.co.banit.idle_detector_compose
 
 import android.content.Context
-import android.util.Log
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.LifecycleRegistry
@@ -77,7 +76,6 @@ class IdleDetectorTest {
         onIdleWithOrigin: (Boolean) -> Unit = { fromBackground ->
             idleCallbackInvoked = true
             idleCallbackFromBackground = fromBackground
-            println("Idle callback invoked. From background: $fromBackground")
         },
     ): IdleDetector {
         return IdleDetector(
@@ -158,12 +156,18 @@ class IdleDetectorTest {
 
     @Test
     fun `onResume handles background timeout correctly`() = runTest {
-        val idleDetector = createIdleDetector()
+        val idleTimeout = 1.seconds
+        val idleDetector = createIdleDetector(
+            idleTimeout = idleTimeout,
+        )
 
         // Move to CREATED state first to trigger initialization
         lifecycleOwner.moveToState(Lifecycle.State.CREATED)
 
         // Set background timeout flag AFTER initialization to prevent it being reset
+        // Set old timestamp to trigger idle
+        val oldTimestamp = System.currentTimeMillis() - idleTimeout.inWholeMilliseconds - 100
+        IdlePersistence.recordInteraction(context, oldTimestamp)
         IdlePersistence.setBackgroundTimeoutTriggered(context, true)
 
         // Move to RESUMED state to trigger handleResume
@@ -266,7 +270,6 @@ class IdleDetectorTest {
             idleTimeout = idleTimeout,
             onIdleWithOrigin = { _ ->
                 callbackCount++
-                println("Idle callback invoked. Count: $callbackCount")
             }
         )
 

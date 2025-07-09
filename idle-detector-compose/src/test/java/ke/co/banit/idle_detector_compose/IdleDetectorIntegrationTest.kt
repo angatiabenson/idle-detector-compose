@@ -143,6 +143,8 @@ class IdleDetectorIntegrationTest {
         assertEquals(WorkInfo.State.ENQUEUED, workInfos.first().state)
 
         // 4. Simulate background timeout by setting the flag
+        val oldTimestamp = System.currentTimeMillis() - idleTimeout.inWholeMilliseconds - 100
+        IdlePersistence.recordInteraction(context, oldTimestamp)
         IdlePersistence.setBackgroundTimeoutTriggered(context, true)
 
         // 5. Resume app
