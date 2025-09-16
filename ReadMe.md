@@ -46,7 +46,7 @@ class MainActivity : ComponentActivity() {
                     )
                 },
                 content = {
-                    IdledetectorappTheme {
+                    IdleDetectorAppTheme {
                         AppContent()
                     }
                 })

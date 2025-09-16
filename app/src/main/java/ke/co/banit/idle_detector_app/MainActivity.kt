@@ -5,7 +5,7 @@ import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import ke.co.banit.idle_detector_app.ui.theme.IdledetectorappTheme
+import ke.co.banit.idle_detector_app.ui.theme.IdleDetectorAppTheme
 import ke.co.banit.idle_detector_compose.IdleDetectorProvider
 import kotlin.time.Duration.Companion.seconds
 
@@ -24,7 +24,7 @@ class MainActivity : ComponentActivity() {
                     )
                 },
                 content = {
-                    IdledetectorappTheme {
+                    IdleDetectorAppTheme {
                         AppContent()
                     }
                 })
