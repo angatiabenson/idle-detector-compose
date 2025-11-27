@@ -26,9 +26,51 @@ import kotlin.time.Duration.Companion.seconds
  * © 2025 Angatia Benson. All rights reserved.
  * ------------------------------------------------------------------------
  */
-// Composition Local Providers
+/**
+ * Composition local providing access to the idle state as a [State]<[Boolean]>.
+ *
+ * Consumers can collect this state to observe idle status changes in real-time.
+ *
+ * ## Usage
+ * ```kotlin
+ * val isIdle by LocalIdleDetectorState.current.collectAsState()
+ * if (isIdle) {
+ *     ShowIdleOverlay()
+ * }
+ * ```
+ *
+ * @see LocalIdleReset
+ */
 val LocalIdleDetectorState = compositionLocalOf<State<Boolean>> { mutableStateOf(false) }
-val LocalIdleReset = compositionLocalOf<(() -> Unit)?> { null }
+
+/**
+ * Composition local providing a function to manually reset the idle timer.
+ *
+ * Invoking this function marks the current time as the last interaction,
+ * effectively resetting the idle timeout countdown.
+ *
+ * ## Usage
+ * ```kotlin
+ * val resetIdle = LocalIdleReset.current
+ * Button(onClick = resetIdle) {
+ *     Text("I'm still here")
+ * }
+ * ```
+ *
+ * @throws IllegalStateException if accessed outside [IdleDetectorProvider] scope
+ * @see LocalIdleDetectorState
+ */
+val LocalIdleReset = compositionLocalOf<() -> Unit> {
+    error("""
+        IdleDetectorProvider not found in composition hierarchy.
+        Ensure LocalIdleReset is accessed within IdleDetectorProvider's content.
+
+        Example:
+        IdleDetectorProvider(...) {
+            YourApp() // Access LocalIdleReset here
+        }
+    """.trimIndent())
+}
 
 /**
  * A Composable function that provides an idle detection mechanism for the application.
@@ -78,10 +120,19 @@ fun IdleDetectorProvider(
                     false
                 }
                 .pointerInput(Unit) {
+                    var lastInteractionTime = 0L
+                    val debounceMs = 100L // Debounce window to reduce overhead
+
                     awaitPointerEventScope {
                         while (true) {
                             awaitPointerEvent(PointerEventPass.Initial)
-                            idleDetector.registerInteraction()
+
+                            // Debounce rapid interactions to reduce overhead
+                            val now = System.currentTimeMillis()
+                            if (now - lastInteractionTime >= debounceMs) {
+                                idleDetector.registerInteraction()
+                                lastInteractionTime = now
+                            }
                         }
                     }
                 }
@@ -116,6 +167,121 @@ fun IdleDetectorProvider(
 ) = IdleDetectorProvider(
     idleTimeout = idleTimeout,
     checkInterval = checkInterval,
-    onIdleWithOrigin = { _ -> onIdle() },
+    onIdleWithOrigin = { _: Boolean -> onIdle() },
     content = content
 )
+
+/**
+ * A Composable function that provides idle detection with type-safe [IdleOrigin] callback.
+ *
+ * This overload uses [IdleOrigin] instead of a boolean flag for better type safety
+ * and code clarity when handling idle state from different origins.
+ *
+ * ## Usage
+ * ```kotlin
+ * IdleDetectorProvider(
+ *     idleTimeout = 5.minutes,
+ *     onIdle = { origin ->
+ *         when (origin) {
+ *             IdleOrigin.Foreground -> showWarningDialog()
+ *             IdleOrigin.Background -> logoutUser()
+ *         }
+ *     }
+ * ) {
+ *     YourApp()
+ * }
+ * ```
+ *
+ * @param idleTimeout Duration of inactivity before considered idle
+ * @param checkInterval How often to check for idle state (default: 1 second)
+ * @param onIdle Callback with type-safe [IdleOrigin] parameter
+ * @param content The app content to wrap
+ *
+ * @see IdleOrigin
+ * @see IdleDetectorConfig
+ */
+@Composable
+@JvmName("IdleDetectorProviderWithIdleOrigin")
+fun IdleDetectorProvider(
+    idleTimeout: Duration,
+    checkInterval: Duration = 1.seconds,
+    onIdle: (IdleOrigin) -> Unit,
+    content: @Composable () -> Unit,
+) = IdleDetectorProvider(
+    idleTimeout = idleTimeout,
+    checkInterval = checkInterval,
+    onIdleWithOrigin = { fromBackground: Boolean ->
+        val origin = IdleOrigin.fromBoolean(fromBackground)
+        onIdle(origin)
+    },
+    content = content
+)
+
+/**
+ * A Composable function that provides idle detection using a configuration object.
+ *
+ * This overload accepts an [IdleDetectorConfig] for a more structured and
+ * type-safe configuration approach, particularly useful when you need to
+ * customize multiple parameters.
+ *
+ * ## Basic Usage
+ * ```kotlin
+ * val config = IdleDetectorConfig.Builder()
+ *     .timeout(5.minutes)
+ *     .checkInterval(2.seconds)
+ *     .enableLogging()
+ *     .build()
+ *
+ * IdleDetectorProvider(
+ *     config = config,
+ *     onIdle = { origin ->
+ *         when (origin) {
+ *             IdleOrigin.Foreground -> showWarning()
+ *             IdleOrigin.Background -> logout()
+ *         }
+ *     }
+ * ) {
+ *     YourApp()
+ * }
+ * ```
+ *
+ * ## Advanced Configuration
+ * ```kotlin
+ * val config = IdleDetectorConfig.Builder()
+ *     .timeout(10.minutes)
+ *     .checkInterval(1.second)
+ *     .enableLogging()
+ *     .disableBackgroundDetection()
+ *     .interactionDebounce(150.milliseconds)
+ *     .persistenceDebounce(1.second)
+ *     .build()
+ * ```
+ *
+ * @param config The idle detector configuration
+ * @param onIdle Callback with type-safe [IdleOrigin] parameter
+ * @param content The app content to wrap
+ *
+ * @see IdleDetectorConfig
+ * @see IdleOrigin
+ */
+@Composable
+@JvmName("IdleDetectorProviderWithConfig")
+fun IdleDetectorProvider(
+    config: IdleDetectorConfig,
+    onIdle: (IdleOrigin) -> Unit,
+    content: @Composable () -> Unit,
+) {
+    // Apply logging configuration
+    IdleDetectorLogger.isEnabled = config.enableLogging
+
+    // Delegate to core implementation
+    IdleDetectorProvider(
+        idleTimeout = config.timeout,
+        checkInterval = config.checkInterval,
+        onIdleWithOrigin = { fromBackground: Boolean ->
+            val origin = IdleOrigin.fromBoolean(fromBackground)
+            onIdle(origin)
+        },
+        content = content
+    )
+}

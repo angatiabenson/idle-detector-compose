@@ -5,7 +5,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     // id("module.publication")
-    id("com.vanniktech.maven.publish") version "0.33.0"
+    id("com.vanniktech.maven.publish") version "0.35.0"
 }
 
 android {
@@ -44,7 +44,7 @@ android {
 }
 
 mavenPublishing {
-    coordinates("io.github.angatiabenson", "idle-detector-compose", "0.0.5")
+    coordinates("io.github.angatiabenson", "idle-detector-compose", "0.1.0")
 
     pom {
         name.set("Idle Detector Compose")

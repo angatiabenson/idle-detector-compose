@@ -7,18 +7,21 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.concurrent.TimeUnit
 
-/**
- * ------------------------------------------------------------------------
- * Project: idle-detector-app
- * File Created by: Angatia Benson on Mon, Apr 07, 2025
- * ------------------------------------------------------------------------
- * © 2025 CoreTec Solution Africa. All rights reserved.
- * ------------------------------------------------------------------------
- * This file is part of the CoreTec Solution Africa project and is intended
- * for internal use within the company. Unauthorized copying, distribution,
- * or use of this file, via any medium, is strictly prohibited.
- * ------------------------------------------------------------------------
- **/
+/*
+ * Copyright 2025 Angatia Benson
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 /**
  * A background worker that checks if the application has been idle for a specified timeout period.
@@ -79,14 +82,14 @@ internal class BackgroundTimeoutWorker(
         val conditionMet = lastActiveTimestamp > 0 && (currentTime - lastActiveTimestamp >= timeoutMillis)
 
         // Log the current state of the worker for debugging purposes.
-        //Log.d(TAG, "Worker running: Now=${currentTime}, LastInteraction=${lastActiveTimestamp}, Timeout=${timeoutMillis}ms, ConditionMet=$conditionMet")
+        IdleDetectorLogger.d("Worker running: Now=${currentTime}, LastInteraction=${lastActiveTimestamp}, Timeout=${timeoutMillis}ms, ConditionMet=$conditionMet")
 
         // Set the background timeout flag based on whether the idle condition has been met.
         if (conditionMet) {
-            //Log.d(TAG, "Background timeout threshold reached. Setting flag.")
+            IdleDetectorLogger.d("Background timeout threshold reached. Setting flag.")
             IdlePersistence.setBackgroundTimeoutTriggered(applicationContext, true)
         } else {
-            //Log.d(TAG, "Background timeout threshold NOT reached.")
+            IdleDetectorLogger.d("Background timeout threshold NOT reached.")
             IdlePersistence.setBackgroundTimeoutTriggered(applicationContext, false)
         }
 

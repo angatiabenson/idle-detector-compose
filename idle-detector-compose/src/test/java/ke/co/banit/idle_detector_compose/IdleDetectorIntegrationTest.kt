@@ -1,6 +1,7 @@
 package ke.co.banit.idle_detector_compose
 
 import android.content.Context
+import android.os.Looper
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.LifecycleRegistry
@@ -9,7 +10,6 @@ import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import androidx.work.testing.WorkManagerTestInitHelper
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runTest
 import org.junit.After
@@ -17,6 +17,7 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -35,7 +36,6 @@ class IdleDetectorIntegrationTest {
     private lateinit var context: Context
     private lateinit var lifecycleOwner: TestLifecycleOwner
     private lateinit var workManager: WorkManager
-    private lateinit var testScope: TestScope
 
     private var idleCallbackCount = 0
     private var lastIdleOrigin: Boolean? = null
@@ -46,7 +46,64 @@ class IdleDetectorIntegrationTest {
         override val lifecycle: Lifecycle get() = lifecycleRegistry
 
         fun moveToState(state: Lifecycle.State) {
-            lifecycleRegistry.currentState = state
+            // Use handleLifecycleEvent to properly trigger observers
+            when (state) {
+                Lifecycle.State.INITIALIZED -> {
+                    if (lifecycleRegistry.currentState >= Lifecycle.State.RESUMED) {
+                        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_PAUSE)
+                    }
+                    if (lifecycleRegistry.currentState >= Lifecycle.State.STARTED) {
+                        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_STOP)
+                    }
+                    if (lifecycleRegistry.currentState >= Lifecycle.State.CREATED) {
+                        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_DESTROY)
+                    }
+                }
+                Lifecycle.State.CREATED -> {
+                    if (lifecycleRegistry.currentState >= Lifecycle.State.RESUMED) {
+                        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_PAUSE)
+                    }
+                    if (lifecycleRegistry.currentState >= Lifecycle.State.STARTED) {
+                        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_STOP)
+                    }
+                    if (lifecycleRegistry.currentState < Lifecycle.State.CREATED) {
+                        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_CREATE)
+                    }
+                }
+                Lifecycle.State.STARTED -> {
+                    if (lifecycleRegistry.currentState < Lifecycle.State.CREATED) {
+                        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_CREATE)
+                    }
+                    if (lifecycleRegistry.currentState >= Lifecycle.State.RESUMED) {
+                        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_PAUSE)
+                    }
+                    if (lifecycleRegistry.currentState < Lifecycle.State.STARTED) {
+                        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_START)
+                    }
+                }
+                Lifecycle.State.RESUMED -> {
+                    if (lifecycleRegistry.currentState < Lifecycle.State.CREATED) {
+                        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_CREATE)
+                    }
+                    if (lifecycleRegistry.currentState < Lifecycle.State.STARTED) {
+                        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_START)
+                    }
+                    if (lifecycleRegistry.currentState < Lifecycle.State.RESUMED) {
+                        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_RESUME)
+                    }
+                }
+                Lifecycle.State.DESTROYED -> {
+                    if (lifecycleRegistry.currentState >= Lifecycle.State.RESUMED) {
+                        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_PAUSE)
+                    }
+                    if (lifecycleRegistry.currentState >= Lifecycle.State.STARTED) {
+                        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_STOP)
+                    }
+                    if (lifecycleRegistry.currentState >= Lifecycle.State.CREATED) {
+                        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_DESTROY)
+                    }
+                }
+            }
         }
     }
 
@@ -90,7 +147,9 @@ class IdleDetectorIntegrationTest {
 
         // 1. Initialize detector
         lifecycleOwner.moveToState(Lifecycle.State.CREATED)
+        shadowOf(Looper.getMainLooper()).idle()
         lifecycleOwner.moveToState(Lifecycle.State.RESUMED)
+        shadowOf(Looper.getMainLooper()).idle()
 
         // 2. Verify initial state
         assertTrue(idleDetector.lastInteractionTimestamp > 0)
@@ -103,7 +162,9 @@ class IdleDetectorIntegrationTest {
 
         // Reset the detector to pick up the new timestamp from persistence
         lifecycleOwner.moveToState(Lifecycle.State.CREATED)
+        shadowOf(Looper.getMainLooper()).idle()
         lifecycleOwner.moveToState(Lifecycle.State.RESUMED)
+        shadowOf(Looper.getMainLooper()).idle()
 
         // 4. Check idle state - now the detector should have the old timestamp
         idleDetector.checkIdleState()
@@ -130,11 +191,14 @@ class IdleDetectorIntegrationTest {
 
         // 1. Initialize and activate detector
         lifecycleOwner.moveToState(Lifecycle.State.CREATED)
+        shadowOf(Looper.getMainLooper()).idle()
         lifecycleOwner.moveToState(Lifecycle.State.RESUMED)
+        shadowOf(Looper.getMainLooper()).idle()
 
         // 2. Register interaction and pause (simulate app going to background)
         idleDetector.registerInteraction()
         lifecycleOwner.moveToState(Lifecycle.State.STARTED) // Triggers pause
+        shadowOf(Looper.getMainLooper()).idle()
 
         // 3. Verify background worker was scheduled
         val workInfos =
@@ -149,6 +213,7 @@ class IdleDetectorIntegrationTest {
 
         // 5. Resume app
         lifecycleOwner.moveToState(Lifecycle.State.RESUMED)
+        shadowOf(Looper.getMainLooper()).idle()
 
         // 6. Verify background idle was detected
         assertEquals(1, idleCallbackCount)
@@ -165,17 +230,20 @@ class IdleDetectorIntegrationTest {
 
         // 1. Initialize
         lifecycleOwner.moveToState(Lifecycle.State.CREATED)
+        shadowOf(Looper.getMainLooper()).idle()
         lifecycleOwner.moveToState(Lifecycle.State.RESUMED)
-
+        shadowOf(Looper.getMainLooper()).idle()
 
         // Reset detector to pick up the old timestamp
         lifecycleOwner.moveToState(Lifecycle.State.CREATED)
+        shadowOf(Looper.getMainLooper()).idle()
 
         // 2. Trigger foreground idle first - need to properly simulate this
         val oldTimestamp = System.currentTimeMillis() - idleTimeout.inWholeMilliseconds - 100
         IdlePersistence.recordInteraction(context, oldTimestamp)
 
         lifecycleOwner.moveToState(Lifecycle.State.RESUMED)
+        shadowOf(Looper.getMainLooper()).idle()
         idleDetector.checkIdleState()
 
         assertEquals(1, idleCallbackCount)
@@ -183,12 +251,14 @@ class IdleDetectorIntegrationTest {
 
         // 3. Register interaction and pause
         lifecycleOwner.moveToState(Lifecycle.State.STARTED)
+        shadowOf(Looper.getMainLooper()).idle()
 
         // 4. Simulate background timeout
         IdlePersistence.setBackgroundTimeoutTriggered(context, true)
 
         // 5. Resume - should not trigger callback again since foreground already did
         lifecycleOwner.moveToState(Lifecycle.State.RESUMED)
+        shadowOf(Looper.getMainLooper()).idle()
 
         // 6. Callback count should remain 1 (not called again for background)
         // Background timeout should be cleared but callback not called again due to _onIdleCalled flag
@@ -204,24 +274,29 @@ class IdleDetectorIntegrationTest {
 
         // 1. Initial lifecycle
         lifecycleOwner.moveToState(Lifecycle.State.CREATED)
+        shadowOf(Looper.getMainLooper()).idle()
         val initialTimestamp = IdlePersistence.getLastInteractionTimestamp(context)
         assertTrue(initialTimestamp > 0)
 
         // 2. Start and resume
         lifecycleOwner.moveToState(Lifecycle.State.STARTED)
+        shadowOf(Looper.getMainLooper()).idle()
         lifecycleOwner.moveToState(Lifecycle.State.RESUMED)
+        shadowOf(Looper.getMainLooper()).idle()
         idleDetector.registerInteraction()
         val activeTimestamp = IdlePersistence.getLastInteractionTimestamp(context)
         assertTrue(activeTimestamp >= initialTimestamp)
 
         // 3. Pause and background work
         lifecycleOwner.moveToState(Lifecycle.State.STARTED)
+        shadowOf(Looper.getMainLooper()).idle()
         var workInfos =
             workManager.getWorkInfosForUniqueWork(BackgroundTimeoutWorker.WORK_NAME).get()
         assertTrue(workInfos.isNotEmpty())
 
         // 4. Resume cancels background work
         lifecycleOwner.moveToState(Lifecycle.State.RESUMED)
+        shadowOf(Looper.getMainLooper()).idle()
         advanceTimeBy(100) // Allow time for cancellation
         workInfos = workManager.getWorkInfosForUniqueWork(BackgroundTimeoutWorker.WORK_NAME).get()
         assertTrue(workInfos.isEmpty() || workInfos.first().state == WorkInfo.State.CANCELLED)
@@ -238,7 +313,9 @@ class IdleDetectorIntegrationTest {
 
         // 1. Set up state
         lifecycleOwner.moveToState(Lifecycle.State.CREATED)
+        shadowOf(Looper.getMainLooper()).idle()
         lifecycleOwner.moveToState(Lifecycle.State.RESUMED)
+        shadowOf(Looper.getMainLooper()).idle()
         idleDetector.registerInteraction()
         IdlePersistence.setBackgroundTimeoutTriggered(context, true)
 
@@ -248,6 +325,7 @@ class IdleDetectorIntegrationTest {
 
         // 3. Reset through lifecycle (CREATE triggers reset)
         lifecycleOwner.moveToState(Lifecycle.State.DESTROYED)
+        shadowOf(Looper.getMainLooper()).idle()
 
         // 4. Verify state was reset and reinitialized
         assertFalse(IdlePersistence.isBackgroundTimeoutTriggered(context))
