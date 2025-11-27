@@ -7,7 +7,7 @@
 A Jetpack Compose library that detects user inactivity across your entire app with zero boilerplate.
 Perfect for implementing session timeouts, security screens, or automatic logouts.
 
-## Features ✨
+## Features 
 
 ### Core Features
 
@@ -19,7 +19,7 @@ Perfect for implementing session timeouts, security screens, or automatic logout
 - **State Management** - Observable idle state via CompositionLocal
 - **Background Detection** - Detects idle timeout while app is paused
 
-### New in 0.1.0 🎉
+### New in 0.1.0 
 
 - **60-80% Performance Improvement** - Optimized persistence, polling, and event handling
 - **Type-Safe API** - Use `IdleOrigin` enum instead of boolean flags
@@ -29,7 +29,7 @@ Perfect for implementing session timeouts, security screens, or automatic logout
 - **Adaptive Polling** - Intelligent polling that reduces battery usage
 - **Debounced Operations** - 80-95% fewer disk writes during active use
 
-## Installation 📦
+## Installation 
 
 Add to your `build.gradle.kts`:
 
@@ -41,7 +41,7 @@ dependencies {
 
 > **Upgrading from 0.0.5?** See the [Migration Guide](MIGRATION_GUIDE.md) for a smooth transition (100% backward compatible!)
 
-## Basic Usage 🚀
+## Basic Usage 
 
 ### 1. Wrap Your App (Simple)
 
@@ -172,7 +172,7 @@ IdleDetectorLogger.isEnabled = BuildConfig.DEBUG
 IdleDetectorLogger.tag = "MyApp:Idle" // Optional custom tag
 ```
 
-## API Reference 📚
+## API Reference 
 
 ### IdleDetectorProvider Overloads
 
@@ -249,7 +249,7 @@ sealed interface IdleOrigin {
 }
 ```
 
-## Advanced Usage 🎓
+## Advanced Usage 
 
 ### Scenario 1: Banking App with Strict Security
 
@@ -321,7 +321,7 @@ IdleDetectorProvider(
 }
 ```
 
-## Performance Optimization 🚀
+## Performance Optimization 
 
 ### Automatic Optimizations (No Code Changes Required)
 
@@ -341,7 +341,7 @@ val config = IdleDetectorConfig.Builder()
     .build()
 ```
 
-## Troubleshooting 🔍
+## Troubleshooting 
 
 ### Common Issues
 
@@ -373,7 +373,7 @@ val config = IdleDetectorConfig.Builder()
 - Disable background detection if not needed
 - Adjust debounce windows based on your use case
 
-## Compatibility 🤝
+## Compatibility 
 
 
 | Version | Kotlin | Min SDK | Compose BOM | Status      |
@@ -381,16 +381,16 @@ val config = IdleDetectorConfig.Builder()
 | 0.1.0   | 1.9.0+ | 21      | 2025.11.01  | Latest      |
 | 0.0.5   | 1.9.0+ | 21      | 2025.11.01  | Maintenance |
 
-## What's New in 0.1.0 📝
+## What's New in 0.1.0 
 
-### Performance Improvements ⚡
+### Performance Improvements 
 
 - 80-95% reduction in disk writes (debounced persistence)
 - 40-60% reduction in CPU wake-ups (adaptive polling)
 - 70-90% reduction in event handler overhead (debouncing)
 - 20-30% improvement in battery life
 
-### New Features 🎉
+### New Features 
 
 - Type-safe `IdleOrigin` API
 - Configuration builder pattern
@@ -399,7 +399,7 @@ val config = IdleDetectorConfig.Builder()
 - Enhanced composition locals
 - Comprehensive ProGuard rules
 
-### Developer Experience 🎨
+### Developer Experience 
 
 - Improved error messages
 - Better IDE autocomplete
@@ -407,7 +407,7 @@ val config = IdleDetectorConfig.Builder()
 - Migration guide
 - Example scenarios
 
-### Backward Compatibility ✅
+### Backward Compatibility 
 
 - 100% backward compatible
 - All existing APIs continue to work
@@ -435,17 +435,17 @@ limitations under the License.
 
 ---
 
-## Resources 📖
+## Resources 
 
 - [Migration Guide](MIGRATION_GUIDE.md) - Upgrade from 0.0.5 to 0.1.0
 - [GitHub Repository](https://github.com/angatiabenson/idle-detector-compose)
 - [Report Issues](https://github.com/angatiabenson/idle-detector-compose/issues)
 
-## Contributing 🤝
+## Contributing 
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
-## Author ✍️
+## Author 
 
 **Angatia Benson**
 

@@ -8,16 +8,20 @@ This guide helps you migrate to the latest version of Idle Detector Compose with
 
 ### Summary of Changes
 
-✅ **100% Backward Compatible** - All existing code continues to work
-🚀 **60-80% Performance Improvement** - Optimized persistence, polling, and event handling
-🎨 **New Developer-Friendly APIs** - Type-safe callbacks, configuration builder, pre-built UI components
-📚 **Enhanced Documentation** - Comprehensive KDoc and examples
+- **100% Backward Compatible** - All existing code continues to work
+
+- **60-80% Performance Improvement** - Optimized persistence, polling, and event handling
+
+- **New Developer-Friendly APIs** - Type-safe callbacks, configuration builder, pre-built UI components
+
+- **Enhanced Documentation** - Comprehensive KDoc and examples
 
 ### What's New
 
 #### 1. Type-Safe IdleOrigin (Recommended Migration)
 
 **Before (Boolean flag):**
+
 ```kotlin
 IdleDetectorProvider(
     idleTimeout = 5.minutes,
@@ -32,6 +36,7 @@ IdleDetectorProvider(
 ```
 
 **After (Type-safe enum):**
+
 ```kotlin
 IdleDetectorProvider(
     idleTimeout = 5.minutes,
@@ -45,14 +50,16 @@ IdleDetectorProvider(
 ```
 
 **Benefits:**
-- ✅ Type-safe - compiler prevents mistakes
-- ✅ More readable - clear intent
-- ✅ Exhaustive when expressions
-- ✅ Better IDE autocomplete
+
+- Type-safe - compiler prevents mistakes
+- More readable - clear intent
+- Exhaustive when expressions
+- Better IDE autocomplete
 
 #### 2. Configuration Builder Pattern
 
 **Before (Parameter-based):**
+
 ```kotlin
 IdleDetectorProvider(
     idleTimeout = 5.minutes,
@@ -64,6 +71,7 @@ IdleDetectorProvider(
 ```
 
 **After (Builder pattern):**
+
 ```kotlin
 val config = IdleDetectorConfig.Builder()
     .timeout(5.minutes)
@@ -82,14 +90,16 @@ IdleDetectorProvider(
 ```
 
 **Benefits:**
-- ✅ Centralized configuration
-- ✅ Validation at build time
-- ✅ Easy to pass between components
-- ✅ Better for complex configurations
+
+- Centralized configuration
+- Validation at build time
+- Easy to pass between components
+- Better for complex configurations
 
 #### 3. Configurable Logging
 
 **New Feature:**
+
 ```kotlin
 // Enable logging for debugging
 IdleDetectorLogger.isEnabled = BuildConfig.DEBUG
@@ -101,13 +111,15 @@ IdleDetectorLogger.tag = "MyApp:Idle"
 ```
 
 **Benefits:**
-- ✅ No LogCat spam in production
-- ✅ Easy debugging during development
-- ✅ Custom tags for filtering
+
+- No LogCat spam in production
+- Easy debugging during development
+- Custom tags for filtering
 
 #### 4. Pre-Built UI Components
 
 **New Feature:**
+
 ```kotlin
 IdleDetectorProvider(...) {
     YourApp()
@@ -121,6 +133,7 @@ IdleDetectorProvider(...) {
 ```
 
 **Available Components:**
+
 - `IdleWarningDialog` - Full-screen warning dialog
 - `IdleStatusIndicator` - Visual status dot
 - `IdleStateLabel` - Text-based status
@@ -130,18 +143,21 @@ IdleDetectorProvider(...) {
 #### 5. Improved Composition Locals
 
 **Before:**
+
 ```kotlin
 val idleReset = LocalIdleReset.current
 idleReset?.invoke() // Required null check
 ```
 
 **After:**
+
 ```kotlin
 val idleReset = LocalIdleReset.current
 idleReset() // No null check needed - throws helpful error if misused
 ```
 
 **Error Message (if used incorrectly):**
+
 ```
 IdleDetectorProvider not found in composition hierarchy.
 Ensure LocalIdleReset is accessed within IdleDetectorProvider's content.
@@ -161,10 +177,12 @@ These optimizations are applied automatically with no code changes required:
 ### 1. Debounced Persistence (80-95% fewer disk writes)
 
 **Before:**
+
 - Every touch/key event wrote to SharedPreferences
 - ~50-100 writes per minute during active use
 
 **After:**
+
 - Writes debounced with 500ms window
 - ~1-5 writes per minute during active use
 - Critical writes (background timeout) still immediate
@@ -172,10 +190,12 @@ These optimizations are applied automatically with no code changes required:
 ### 2. Adaptive Polling (40-60% fewer CPU wake-ups)
 
 **Before:**
+
 - Fixed 1-second polling interval
 - 60 wake-ups per minute
 
 **After:**
+
 - Adaptive interval based on remaining time:
   - Last 10 seconds: 1-second interval
   - Last 30 seconds: 2-second interval
@@ -185,20 +205,24 @@ These optimizations are applied automatically with no code changes required:
 ### 3. Interaction Debouncing (70-90% less overhead)
 
 **Before:**
+
 - Every touch event triggered interaction registration
 - ~100-500 calls per minute during scrolling
 
 **After:**
+
 - Events debounced with 100ms window
 - ~10-50 calls per minute during scrolling
 
 ### 4. In-Memory Caching
 
 **Before:**
+
 - Every idle check read from SharedPreferences
 - ~60 disk reads per minute
 
 **After:**
+
 - Cache initialized once, reads from memory
 - ~1-2 disk reads per minute
 
@@ -208,20 +232,20 @@ These optimizations are applied automatically with no code changes required:
 
 ### For All Projects
 
-- [ ] Update dependency version in `build.gradle.kts`
+- [ ]  Update dependency version in `build.gradle.kts`
   ```kotlin
   implementation("io.github.angatiabenson:idle-detector-compose:0.1.0")
   ```
-- [ ] Review ProGuard rules if using R8/ProGuard (rules included in library)
-- [ ] Test idle detection behavior (performance should improve automatically)
+- [ ]  Review ProGuard rules if using R8/ProGuard (rules included in library)
+- [ ]  Test idle detection behavior (performance should improve automatically)
 
 ### Optional Enhancements
 
-- [ ] Migrate to type-safe `IdleOrigin` API
-- [ ] Use configuration builder for complex setups
-- [ ] Enable logging during development
-- [ ] Use pre-built UI components
-- [ ] Remove null checks on `LocalIdleReset`
+- [ ]  Migrate to type-safe `IdleOrigin` API
+- [ ]  Use configuration builder for complex setups
+- [ ]  Enable logging during development
+- [ ]  Use pre-built UI components
+- [ ]  Remove null checks on `LocalIdleReset`
 
 ---
 
@@ -230,6 +254,7 @@ These optimizations are applied automatically with no code changes required:
 ### Issue: Logs not appearing
 
 **Solution:**
+
 ```kotlin
 // Enable logging
 IdleDetectorLogger.isEnabled = true
@@ -241,11 +266,13 @@ IdleDetectorLogger.tag = "IdleDetector" // Default
 ### Issue: Type mismatch with onIdle callback
 
 **Old code:**
+
 ```kotlin
 onIdleWithOrigin = { fromBackground -> ... } // Works
 ```
 
 **New code:**
+
 ```kotlin
 onIdle = { origin -> ... } // Also works, but different parameter name
 ```
@@ -257,12 +284,13 @@ Both APIs are supported. The new `onIdle` uses `IdleOrigin` enum, while `onIdleW
 **Cause:** Accessing `LocalIdleReset` outside `IdleDetectorProvider` scope
 
 **Solution:**
+
 ```kotlin
-// ❌ Wrong
+// Wrong
 val resetIdle = LocalIdleReset.current
 IdleDetectorProvider(...) { YourApp() }
 
-// ✅ Correct
+// Correct
 IdleDetectorProvider(...) {
     val resetIdle = LocalIdleReset.current
     YourApp()
@@ -293,6 +321,7 @@ fun IdleDetectorProvider(
 ```
 
 **Migration:**
+
 ```kotlin
 // Old (still works, but deprecated)
 onIdle = { logout() }
@@ -406,15 +435,17 @@ IdleDetectorProvider(
 ## Version History
 
 ### 0.1.0 (Current)
-- ✨ Added type-safe `IdleOrigin` API
-- ✨ Added configuration builder pattern
-- ✨ Added configurable logging
-- ✨ Added pre-built UI components
-- ⚡ 60-80% performance improvements
-- 📚 Enhanced documentation
-- ✅ 100% backward compatible
+
+- Added type-safe `IdleOrigin` API
+- Added configuration builder pattern
+- Added configurable logging
+- Added pre-built UI components
+- 60-80% performance improvements
+- Enhanced documentation
+- 100% backward compatible
 
 ### 0.0.5 (Previous)
+
 - Initial release with basic idle detection
 - Boolean-based origin flag
 - Fixed polling interval
