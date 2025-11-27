@@ -41,7 +41,6 @@ internal class IdleDetector(
     private val checkInterval: Duration = 1.seconds,
     private val onIdleWithOrigin: (Boolean) -> Unit,
 ) {
-    val TAG = "IdleDetector"
     private val workManager = WorkManager.getInstance(context)
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
