@@ -19,6 +19,9 @@ concurrency:
   group: publish-${{ github.ref }}
   cancel-in-progress: false
 
+env:
+  GRADLE_OPTS: "-Dorg.gradle.project.android.useAndroidX=true -Dorg.gradle.project.android.enableJetifier=true -Dorg.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g"
+
 jobs:
   verify:
     name: Verify before publish
