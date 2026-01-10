@@ -161,7 +161,7 @@ internal class IdleDetector(
         val callback = onWarning ?: return
 
         val warningThresholdTime = idleTimeout - warning
-        val isInWarningPeriod = elapsedTime >= warningThresholdTime && elapsedTime < idleTimeout
+        val isInWarningPeriod = elapsedTime in warningThresholdTime..<idleTimeout
 
         when {
             isInWarningPeriod && !_onWarningCalled -> {
