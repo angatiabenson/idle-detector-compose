@@ -40,10 +40,11 @@ import kotlin.time.Duration.Companion.seconds
  * }
  * ```
  *
- * ## Advanced Configuration
+ * ## Advanced Configuration with Warning
  * ```kotlin
  * val config = IdleDetectorConfig.Builder()
- *     .timeout(10.minutes)
+ *     .timeout(5.minutes)
+ *     .warningTimeout(1.minutes)  // Show warning 1 minute before idle
  *     .checkInterval(1.second)
  *     .enableLogging()
  *     .disableBackgroundDetection()
@@ -53,6 +54,7 @@ import kotlin.time.Duration.Companion.seconds
  * ```
  *
  * @property timeout Duration of inactivity before the app is considered idle
+ * @property warningTimeout Optional duration before timeout to trigger warning callback (must be less than timeout)
  * @property checkInterval How often to poll for idle state while app is in foreground
  * @property enableBackgroundDetection Whether to detect idle state when app is backgrounded
  * @property enableLogging Whether to enable debug logging for idle detection
@@ -66,6 +68,7 @@ import kotlin.time.Duration.Companion.seconds
 @Immutable
 data class IdleDetectorConfig(
     val timeout: Duration,
+    val warningTimeout: Duration? = null,
     val checkInterval: Duration = 1.seconds,
     val enableBackgroundDetection: Boolean = true,
     val enableLogging: Boolean = false,
@@ -83,6 +86,14 @@ data class IdleDetectorConfig(
         require(timeout > checkInterval) {
             "Timeout ($timeout) must be greater than check interval ($checkInterval)"
         }
+        warningTimeout?.let { warning ->
+            require(warning.inWholeMilliseconds > 0) {
+                "Warning timeout must be positive when specified, got: $warning"
+            }
+            require(warning < timeout) {
+                "Warning timeout ($warning) must be less than idle timeout ($timeout)"
+            }
+        }
         require(interactionDebounceWindow.inWholeMilliseconds >= 0) {
             "Interaction debounce window must be non-negative, got: $interactionDebounceWindow"
         }
@@ -90,6 +101,12 @@ data class IdleDetectorConfig(
             "Persistence debounce window must be non-negative, got: $persistenceDebounceWindow"
         }
     }
+
+    /**
+     * Indicates whether a warning timeout is configured.
+     */
+    val hasWarningTimeout: Boolean
+        get() = warningTimeout != null
 
     /**
      * Builder for creating [IdleDetectorConfig] instances with a fluent API.
@@ -109,6 +126,7 @@ data class IdleDetectorConfig(
      */
     class Builder {
         private var timeout: Duration? = null
+        private var warningTimeout: Duration? = null
         private var checkInterval: Duration = 1.seconds
         private var enableBackgroundDetection: Boolean = true
         private var enableLogging: Boolean = false
@@ -136,6 +154,44 @@ data class IdleDetectorConfig(
          */
         fun timeout(duration: Duration) = apply {
             timeout = duration
+        }
+
+        /**
+         * Sets the warning timeout duration.
+         *
+         * When configured, the warning callback will be triggered when the remaining
+         * time until idle reaches this threshold. This allows showing a "session expiring"
+         * warning before the actual idle timeout occurs.
+         *
+         * **Optional parameter** - if not set, no warning will be triggered.
+         *
+         * ## Examples
+         * ```kotlin
+         * .timeout(5.minutes)
+         * .warningTimeout(1.minutes)    // Warning fires when 1 minute remains
+         *
+         * .timeout(30.seconds)
+         * .warningTimeout(10.seconds)   // Warning fires when 10 seconds remain
+         * ```
+         *
+         * ## Usage with Callback
+         * ```kotlin
+         * IdleDetectorProvider(
+         *     config = config,
+         *     onWarning = { remainingTime ->
+         *         showToast("Session expires in ${remainingTime.inWholeSeconds}s")
+         *     },
+         *     onIdle = { origin -> logout() }
+         * ) {
+         *     YourApp()
+         * }
+         * ```
+         *
+         * @param duration The warning threshold (must be positive and less than timeout)
+         * @return This builder instance for chaining
+         */
+        fun warningTimeout(duration: Duration) = apply {
+            warningTimeout = duration
         }
 
         /**
@@ -306,6 +362,7 @@ data class IdleDetectorConfig(
 
             return IdleDetectorConfig(
                 timeout = finalTimeout,
+                warningTimeout = warningTimeout,
                 checkInterval = checkInterval,
                 enableBackgroundDetection = enableBackgroundDetection,
                 enableLogging = enableLogging,

@@ -44,7 +44,7 @@ android {
 }
 
 mavenPublishing {
-    coordinates("io.github.angatiabenson", "idle-detector-compose", "0.1.0")
+    coordinates("io.github.angatiabenson", "idle-detector-compose", "0.2.0")
 
     pom {
         name.set("Idle Detector Compose")

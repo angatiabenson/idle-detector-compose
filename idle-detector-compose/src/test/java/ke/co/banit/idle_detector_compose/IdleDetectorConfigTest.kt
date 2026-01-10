@@ -371,4 +371,207 @@ class IdleDetectorConfigTest {
         assertEquals("Timeout should be 60 minutes", 60.minutes, config.timeout)
         assertEquals("Check interval should be 10 seconds", 10.seconds, config.checkInterval)
     }
+
+    // region Warning Timeout Tests
+
+    @Test
+    fun `test warning timeout not set by default`() {
+        val config = IdleDetectorConfig.Builder()
+            .timeout(5.minutes)
+            .build()
+
+        assertNull("Warning timeout should be null by default", config.warningTimeout)
+        assertFalse("hasWarningTimeout should be false", config.hasWarningTimeout)
+    }
+
+    @Test
+    fun `test warning timeout can be set`() {
+        val config = IdleDetectorConfig.Builder()
+            .timeout(5.minutes)
+            .warningTimeout(1.minutes)
+            .build()
+
+        assertEquals("Warning timeout should be 1 minute", 1.minutes, config.warningTimeout)
+        assertTrue("hasWarningTimeout should be true", config.hasWarningTimeout)
+    }
+
+    @Test
+    fun `test warning timeout less than idle timeout is valid`() {
+        val config = IdleDetectorConfig.Builder()
+            .timeout(10.minutes)
+            .warningTimeout(2.minutes)
+            .build()
+
+        assertEquals(10.minutes, config.timeout)
+        assertEquals(2.minutes, config.warningTimeout)
+    }
+
+    @Test
+    fun `test warning timeout much smaller than idle timeout`() {
+        val config = IdleDetectorConfig.Builder()
+            .timeout(30.minutes)
+            .warningTimeout(30.seconds)
+            .build()
+
+        assertEquals(30.minutes, config.timeout)
+        assertEquals(30.seconds, config.warningTimeout)
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun `test warning timeout equal to idle timeout throws exception`() {
+        IdleDetectorConfig.Builder()
+            .timeout(5.minutes)
+            .warningTimeout(5.minutes)
+            .build()
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun `test warning timeout greater than idle timeout throws exception`() {
+        IdleDetectorConfig.Builder()
+            .timeout(5.minutes)
+            .warningTimeout(10.minutes)
+            .build()
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun `test zero warning timeout throws exception`() {
+        IdleDetectorConfig.Builder()
+            .timeout(5.minutes)
+            .warningTimeout(0.seconds)
+            .build()
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun `test negative warning timeout throws exception`() {
+        IdleDetectorConfig.Builder()
+            .timeout(5.minutes)
+            .warningTimeout((-1).minutes)
+            .build()
+    }
+
+    @Test
+    fun `test warning timeout with short durations`() {
+        val config = IdleDetectorConfig.Builder()
+            .timeout(10.seconds)
+            .warningTimeout(3.seconds)
+            .checkInterval(500.milliseconds)
+            .build()
+
+        assertEquals(10.seconds, config.timeout)
+        assertEquals(3.seconds, config.warningTimeout)
+    }
+
+    @Test
+    fun `test warning timeout with long durations`() {
+        val config = IdleDetectorConfig.Builder()
+            .timeout(60.minutes)
+            .warningTimeout(5.minutes)
+            .build()
+
+        assertEquals(60.minutes, config.timeout)
+        assertEquals(5.minutes, config.warningTimeout)
+    }
+
+    @Test
+    fun `test config copy with warning timeout`() {
+        val original = IdleDetectorConfig.Builder()
+            .timeout(5.minutes)
+            .warningTimeout(1.minutes)
+            .build()
+
+        val modified = original.copy(warningTimeout = 2.minutes)
+
+        assertEquals(1.minutes, original.warningTimeout)
+        assertEquals(2.minutes, modified.warningTimeout)
+    }
+
+    @Test
+    fun `test config equality with warning timeout`() {
+        val config1 = IdleDetectorConfig.Builder()
+            .timeout(5.minutes)
+            .warningTimeout(1.minutes)
+            .build()
+
+        val config2 = IdleDetectorConfig.Builder()
+            .timeout(5.minutes)
+            .warningTimeout(1.minutes)
+            .build()
+
+        assertEquals(config1, config2)
+    }
+
+    @Test
+    fun `test config inequality when warning timeout differs`() {
+        val config1 = IdleDetectorConfig.Builder()
+            .timeout(5.minutes)
+            .warningTimeout(1.minutes)
+            .build()
+
+        val config2 = IdleDetectorConfig.Builder()
+            .timeout(5.minutes)
+            .warningTimeout(2.minutes)
+            .build()
+
+        assertNotEquals(config1, config2)
+    }
+
+    @Test
+    fun `test config inequality when one has warning and other does not`() {
+        val configWithWarning = IdleDetectorConfig.Builder()
+            .timeout(5.minutes)
+            .warningTimeout(1.minutes)
+            .build()
+
+        val configWithoutWarning = IdleDetectorConfig.Builder()
+            .timeout(5.minutes)
+            .build()
+
+        assertNotEquals(configWithWarning, configWithoutWarning)
+    }
+
+    @Test
+    fun `test full config with all options including warning timeout`() {
+        val config = IdleDetectorConfig.Builder()
+            .timeout(10.minutes)
+            .warningTimeout(2.minutes)
+            .checkInterval(2.seconds)
+            .enableLogging()
+            .disableBackgroundDetection()
+            .interactionDebounce(150.milliseconds)
+            .persistenceDebounce(1.seconds)
+            .build()
+
+        assertEquals(10.minutes, config.timeout)
+        assertEquals(2.minutes, config.warningTimeout)
+        assertEquals(2.seconds, config.checkInterval)
+        assertTrue(config.enableLogging)
+        assertFalse(config.enableBackgroundDetection)
+        assertEquals(150.milliseconds, config.interactionDebounceWindow)
+        assertEquals(1.seconds, config.persistenceDebounceWindow)
+        assertTrue(config.hasWarningTimeout)
+    }
+
+    @Test
+    fun `test warning timeout at boundary - 1ms less than timeout`() {
+        val config = IdleDetectorConfig.Builder()
+            .timeout(5000.milliseconds)
+            .warningTimeout(4999.milliseconds)
+            .build()
+
+        assertEquals(5000.milliseconds, config.timeout)
+        assertEquals(4999.milliseconds, config.warningTimeout)
+    }
+
+    @Test
+    fun `test warning timeout toString contains warning info`() {
+        val config = IdleDetectorConfig.Builder()
+            .timeout(5.minutes)
+            .warningTimeout(1.minutes)
+            .build()
+
+        val configString = config.toString()
+        assertTrue("toString should contain warningTimeout info", configString.contains("warningTimeout"))
+    }
+
+    // endregion
 }
