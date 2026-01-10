@@ -10,6 +10,10 @@ concurrency:
   group: test-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  ORG_GRADLE_PROJECT_android.useAndroidX: "true"
+  ORG_GRADLE_PROJECT_android.enableJetifier: "true"
+
 jobs:
   test:
     name: Run Tests
