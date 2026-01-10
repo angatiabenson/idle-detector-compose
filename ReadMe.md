@@ -3,11 +3,12 @@
 [![Maven Central](https://img.shields.io/maven-central/v/io.github.angatiabenson/idle-detector-compose)](https://search.maven.org/artifact/io.github.angatiabenson/idle-detector-compose)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Android API](https://img.shields.io/badge/API-21%2B-brightgreen.svg)](https://android-arsenal.com/api?level=21)
+[![Test](https://github.com/angatiabenson/idle-detector-compose/actions/workflows/test.yml/badge.svg)](https://github.com/angatiabenson/idle-detector-compose/actions/workflows/test.yml)
 
 A Jetpack Compose library that detects user inactivity across your entire app with zero boilerplate.
 Perfect for implementing session timeouts, security screens, or automatic logouts.
 
-## Features 
+## Features
 
 ### Core Features
 
@@ -19,7 +20,15 @@ Perfect for implementing session timeouts, security screens, or automatic logout
 - **State Management** - Observable idle state via CompositionLocal
 - **Background Detection** - Detects idle timeout while app is paused
 
-### New in 0.1.0 
+### New in 0.2.0
+
+- **Warning Timeout / Grace Period** - Get notified before idle timeout triggers
+- **Countdown Timer State** - Real-time remaining time, progress, and formatted display
+- **`LocalIdleTimerState`** - Observable timer state for custom countdown UIs
+- **Warning Callback** - `onWarning` callback fires when entering grace period
+- **`IdleTimerState` Data Class** - Rich timer state with progress, formatted time, warning detection
+
+### Previous in 0.1.0
 
 - **60-80% Performance Improvement** - Optimized persistence, polling, and event handling
 - **Type-Safe API** - Use `IdleOrigin` enum instead of boolean flags
@@ -29,17 +38,17 @@ Perfect for implementing session timeouts, security screens, or automatic logout
 - **Adaptive Polling** - Intelligent polling that reduces battery usage
 - **Debounced Operations** - 80-95% fewer disk writes during active use
 
-## Installation 
+## Installation
 
 Add to your `build.gradle.kts`:
 
 ```kotlin
 dependencies {
-    implementation("io.github.angatiabenson:idle-detector-compose:0.1.0")
+    implementation("io.github.angatiabenson:idle-detector-compose:0.2.0")
 }
 ```
 
-> **Upgrading from 0.0.5?** See the [Migration Guide](MIGRATION_GUIDE.md) for a smooth transition (100% backward compatible!)
+> **Upgrading from 0.1.0 or earlier?** See the [Migration Guide](MIGRATION_GUIDE.md) for a smooth transition (100% backward compatible!)
 
 ## Basic Usage 
 
@@ -68,7 +77,37 @@ class MainActivity : ComponentActivity() {
 }
 ```
 
-### 1b. Advanced Configuration (Builder Pattern)
+### 1b. With Warning Timeout (Grace Period)
+
+```kotlin
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContent {
+            IdleDetectorProvider(
+                idleTimeout = 5.minutes,
+                warningTimeout = 1.minutes,  // Warning fires 1 minute before idle
+                onWarning = { remainingTime ->
+                    // Show "Session expires in X seconds" warning
+                    showWarningToast("Session expires in ${remainingTime.inWholeSeconds}s")
+                },
+                onIdle = { origin ->
+                    when (origin) {
+                        IdleOrigin.Foreground -> showIdleScreen()
+                        IdleOrigin.Background -> logout()
+                    }
+                }
+            ) {
+                IdleDetectorAppTheme {
+                    AppContent()
+                }
+            }
+        }
+    }
+}
+```
+
+### 1c. Advanced Configuration (Builder Pattern)
 
 ```kotlin
 class MainActivity : ComponentActivity() {
@@ -77,12 +116,14 @@ class MainActivity : ComponentActivity() {
         setContent {
             val config = IdleDetectorConfig.Builder()
                 .timeout(5.minutes)
+                .warningTimeout(1.minutes)  // Optional: warning before idle
                 .checkInterval(2.seconds)
                 .enableLogging() // Enable for debugging
                 .build()
 
             IdleDetectorProvider(
                 config = config,
+                onWarning = { remaining -> showWarning(remaining) },
                 onIdle = { origin ->
                     when (origin) {
                         IdleOrigin.Foreground -> showWarning()
@@ -112,7 +153,46 @@ fun HomeScreen() {
 }
 ```
 
-### 2b. Use Pre-Built UI Components
+### 2b. Use Countdown Timer State
+
+```kotlin
+@Composable
+fun SessionCountdown() {
+    val timerState by LocalIdleTimerState.current
+    val resetIdle = LocalIdleReset.current
+
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        // Display remaining time
+        Text(
+            text = "Session expires in: ${timerState.formattedRemainingTime}",
+            style = MaterialTheme.typography.headlineMedium
+        )
+
+        // Show progress bar
+        LinearProgressIndicator(
+            progress = { timerState.progress },
+            color = if (timerState.isInWarningPeriod) Color.Red else Color.Green
+        )
+
+        // Show warning message when in grace period
+        if (timerState.isInWarningPeriod) {
+            Text(
+                text = "Session expiring soon!",
+                color = Color.Red,
+                style = MaterialTheme.typography.bodyLarge
+            )
+            Button(onClick = resetIdle) {
+                Text("Stay Active")
+            }
+        }
+
+        // Additional timer info
+        Text("Progress: ${timerState.remainingPercentage}% remaining")
+    }
+}
+```
+
+### 2c. Use Pre-Built UI Components
 
 ```kotlin
 @Composable
@@ -213,6 +293,7 @@ IdleDetectorProvider(
 ```kotlin
 IdleDetectorConfig.Builder()
     .timeout(Duration)              // Required
+    .warningTimeout(Duration)       // Optional: fires callback before idle
     .checkInterval(Duration)        // Optional, default: 1.second
     .enableLogging()                // Optional, default: disabled
     .disableBackgroundDetection()   // Optional, default: enabled
@@ -234,11 +315,27 @@ IdleDetectorConfig.Builder()
 
 ### Composition Locals
 
+| Local                    | Type                    | Description                           |
+| ------------------------ | ----------------------- | ------------------------------------- |
+| `LocalIdleDetectorState` | `State<Boolean>`        | Observable idle state                 |
+| `LocalIdleTimerState`    | `State<IdleTimerState>` | Real-time countdown timer state       |
+| `LocalIdleReset`         | `() -> Unit`            | Function to reset idle timer          |
 
-| Local                    | Type             | Description                  |
-| ------------------------ | ---------------- | ---------------------------- |
-| `LocalIdleDetectorState` | `State<Boolean>` | Observable idle state        |
-| `LocalIdleReset`         | `() -> Unit`     | Function to reset idle timer |
+### IdleTimerState Properties
+
+| Property                   | Type       | Description                                      |
+| -------------------------- | ---------- | ------------------------------------------------ |
+| `remainingTime`            | `Duration` | Time remaining until idle (never negative)       |
+| `totalTimeout`             | `Duration` | The configured idle timeout duration             |
+| `warningThreshold`         | `Duration?`| Optional warning threshold duration              |
+| `isIdle`                   | `Boolean`  | Whether idle timeout has been reached            |
+| `isInWarningPeriod`        | `Boolean`  | Whether currently in warning period              |
+| `progress`                 | `Float`    | 0.0 (just interacted) to 1.0 (idle)              |
+| `formattedRemainingTime`   | `String`   | Formatted as "MM:SS"                             |
+| `formattedRemainingTimeLong`| `String`  | Formatted as "HH:MM:SS" for longer durations     |
+| `elapsedTime`              | `Duration` | Time since last interaction                      |
+| `remainingPercentage`      | `Int`      | Percentage of time remaining (0-100)             |
+| `warningProgress`          | `Float?`   | Progress within warning period (0.0-1.0)         |
 
 ### IdleOrigin (Type-Safe)
 
@@ -282,22 +379,36 @@ IdleDetectorProvider(
 }
 ```
 
-### Scenario 2: E-Commerce with Grace Period
+### Scenario 2: E-Commerce with Warning Countdown
 
 ```kotlin
 val config = IdleDetectorConfig.Builder()
     .timeout(15.minutes)
-    .checkInterval(2.seconds) // Less aggressive
+    .warningTimeout(2.minutes)  // Show warning 2 minutes before timeout
+    .checkInterval(1.seconds)
     .build()
 
 IdleDetectorProvider(
     config = config,
+    onWarning = { remaining ->
+        // Show countdown toast
+        showToast("Your cart will expire in ${remaining.inWholeSeconds}s")
+    },
     onIdle = { origin ->
-        showGentleReminder(origin)
+        clearCart()
+        showSessionExpired()
     }
 ) {
     ShoppingApp()
-    IdleBanner(onDismiss = { /* Continue shopping */ })
+
+    // Use timer state for custom UI
+    val timerState by LocalIdleTimerState.current
+    if (timerState.isInWarningPeriod) {
+        CartExpiryBanner(
+            remainingTime = timerState.formattedRemainingTime,
+            onExtend = LocalIdleReset.current
+        )
+    }
 }
 ```
 
@@ -373,24 +484,70 @@ val config = IdleDetectorConfig.Builder()
 - Disable background detection if not needed
 - Adjust debounce windows based on your use case
 
-## Compatibility 
-
+## Compatibility
 
 | Version | Kotlin | Min SDK | Compose BOM | Status      |
 | ------- | ------ | ------- | ----------- | ----------- |
-| 0.1.0   | 1.9.0+ | 21      | 2025.11.01  | Latest      |
-| 0.0.5   | 1.9.0+ | 21      | 2025.11.01  | Maintenance |
+| 0.2.0   | 1.9.0+ | 21      | 2025.11.01  | Latest      |
+| 0.1.0   | 1.9.0+ | 21      | 2025.11.01  | Maintenance |
+| 0.0.5   | 1.9.0+ | 21      | 2025.11.01  | Legacy      |
 
-## What's New in 0.1.0 
+## What's New in 0.2.0
 
-### Performance Improvements 
+### Warning Timeout / Grace Period
+
+Show warnings before the idle timeout triggers:
+
+```kotlin
+IdleDetectorProvider(
+    idleTimeout = 5.minutes,
+    warningTimeout = 1.minutes,  // Fires 1 minute before idle
+    onWarning = { remaining -> showWarning(remaining) },
+    onIdle = { origin -> logout() }
+) { ... }
+```
+
+### Countdown Timer State
+
+Real-time countdown information via `LocalIdleTimerState`:
+
+```kotlin
+val timerState by LocalIdleTimerState.current
+
+Text("Expires in: ${timerState.formattedRemainingTime}")  // "04:30"
+LinearProgressIndicator(progress = timerState.progress)   // 0.0 to 1.0
+
+if (timerState.isInWarningPeriod) {
+    ShowUrgentWarning()
+}
+```
+
+### IdleTimerState Data Class
+
+Rich timer information:
+- `remainingTime` / `elapsedTime` - Duration values
+- `progress` - Float from 0.0 to 1.0
+- `formattedRemainingTime` - "MM:SS" format
+- `formattedRemainingTimeLong` - "HH:MM:SS" format
+- `isInWarningPeriod` - Boolean for warning state
+- `warningProgress` - Progress within warning period
+- `remainingPercentage` - Integer 0-100
+
+### CI/CD Pipeline
+
+- Automated testing on PRs
+- Automated publishing to Maven Central
+
+## What's New in 0.1.0
+
+### Performance Improvements
 
 - 80-95% reduction in disk writes (debounced persistence)
 - 40-60% reduction in CPU wake-ups (adaptive polling)
 - 70-90% reduction in event handler overhead (debouncing)
 - 20-30% improvement in battery life
 
-### New Features 
+### New Features
 
 - Type-safe `IdleOrigin` API
 - Configuration builder pattern
@@ -399,7 +556,7 @@ val config = IdleDetectorConfig.Builder()
 - Enhanced composition locals
 - Comprehensive ProGuard rules
 
-### Developer Experience 
+### Developer Experience
 
 - Improved error messages
 - Better IDE autocomplete
@@ -407,7 +564,7 @@ val config = IdleDetectorConfig.Builder()
 - Migration guide
 - Example scenarios
 
-### Backward Compatibility 
+### Backward Compatibility
 
 - 100% backward compatible
 - All existing APIs continue to work

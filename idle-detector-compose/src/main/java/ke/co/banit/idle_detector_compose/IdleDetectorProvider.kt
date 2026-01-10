@@ -33,15 +33,45 @@ import kotlin.time.Duration.Companion.seconds
  *
  * ## Usage
  * ```kotlin
- * val isIdle by LocalIdleDetectorState.current.collectAsState()
+ * val isIdle by LocalIdleDetectorState.current
  * if (isIdle) {
  *     ShowIdleOverlay()
  * }
  * ```
  *
  * @see LocalIdleReset
+ * @see LocalIdleTimerState
  */
 val LocalIdleDetectorState = compositionLocalOf<State<Boolean>> { mutableStateOf(false) }
+
+/**
+ * Composition local providing access to the timer state for countdown functionality.
+ *
+ * Provides real-time countdown information including remaining time, progress,
+ * and warning period status.
+ *
+ * ## Usage
+ * ```kotlin
+ * val timerState by LocalIdleTimerState.current
+ *
+ * // Display remaining time
+ * Text("Session expires in: ${timerState.formattedRemainingTime}")
+ *
+ * // Show progress bar
+ * LinearProgressIndicator(progress = timerState.progress)
+ *
+ * // Check warning state
+ * if (timerState.isInWarningPeriod) {
+ *     ShowWarningBanner()
+ * }
+ * ```
+ *
+ * @see IdleTimerState
+ * @see LocalIdleDetectorState
+ */
+val LocalIdleTimerState = compositionLocalOf<State<IdleTimerState>> {
+    mutableStateOf(IdleTimerState.initial(Duration.INFINITE))
+}
 
 /**
  * Composition local providing a function to manually reset the idle timer.
@@ -59,6 +89,7 @@ val LocalIdleDetectorState = compositionLocalOf<State<Boolean>> { mutableStateOf
  *
  * @throws IllegalStateException if accessed outside [IdleDetectorProvider] scope
  * @see LocalIdleDetectorState
+ * @see LocalIdleTimerState
  */
 val LocalIdleReset = compositionLocalOf<() -> Unit> {
     error("""
@@ -80,14 +111,18 @@ val LocalIdleReset = compositionLocalOf<() -> Unit> {
  * along with an origin flag indicating whether the idle state was triggered from the background.
  *
  * @param idleTimeout The duration after which the application is considered idle.
+ * @param warningTimeout Optional duration before idle timeout to trigger warning callback.
  * @param checkInterval The interval at which to check for user interactions (default is 1 second).
+ * @param onWarning Optional callback invoked when warning period begins, with remaining time until idle.
  * @param onIdleWithOrigin Callback invoked when the application goes idle, with a boolean indicating if it was from background.
  * @param content The content to be displayed within the idle detector context.
  */
 @Composable
 fun IdleDetectorProvider(
     idleTimeout: Duration,
+    warningTimeout: Duration? = null,
     checkInterval: Duration = 1.seconds,
+    onWarning: ((Duration) -> Unit)? = null,
     onIdleWithOrigin: (Boolean) -> Unit,
     content: @Composable () -> Unit,
 ) {
@@ -99,8 +134,10 @@ fun IdleDetectorProvider(
             context = context,
             lifecycleOwner = lifecycleOwner,
             idleTimeout = idleTimeout,
+            warningTimeout = warningTimeout,
             checkInterval = checkInterval,
-            onIdleWithOrigin = onIdleWithOrigin
+            onIdleWithOrigin = onIdleWithOrigin,
+            onWarning = onWarning,
         )
     }
 
@@ -110,6 +147,7 @@ fun IdleDetectorProvider(
 
     CompositionLocalProvider(
         LocalIdleDetectorState provides idleDetector.isIdle,
+        LocalIdleTimerState provides idleDetector.timerState,
         LocalIdleReset provides idleDetector::registerInteraction
     ) {
         Box(
@@ -245,29 +283,40 @@ fun IdleDetectorProvider(
  * }
  * ```
  *
- * ## Advanced Configuration
+ * ## With Warning Timeout
  * ```kotlin
  * val config = IdleDetectorConfig.Builder()
- *     .timeout(10.minutes)
+ *     .timeout(5.minutes)
+ *     .warningTimeout(1.minutes)  // Show warning 1 minute before idle
  *     .checkInterval(1.second)
  *     .enableLogging()
- *     .disableBackgroundDetection()
- *     .interactionDebounce(150.milliseconds)
- *     .persistenceDebounce(1.second)
  *     .build()
+ *
+ * IdleDetectorProvider(
+ *     config = config,
+ *     onWarning = { remainingTime ->
+ *         showToast("Session expires in ${remainingTime.inWholeSeconds}s")
+ *     },
+ *     onIdle = { origin -> logout() }
+ * ) {
+ *     YourApp()
+ * }
  * ```
  *
  * @param config The idle detector configuration
+ * @param onWarning Optional callback invoked when warning period begins, with remaining time until idle
  * @param onIdle Callback with type-safe [IdleOrigin] parameter
  * @param content The app content to wrap
  *
  * @see IdleDetectorConfig
  * @see IdleOrigin
+ * @see LocalIdleTimerState
  */
 @Composable
 @JvmName("IdleDetectorProviderWithConfig")
 fun IdleDetectorProvider(
     config: IdleDetectorConfig,
+    onWarning: ((Duration) -> Unit)? = null,
     onIdle: (IdleOrigin) -> Unit,
     content: @Composable () -> Unit,
 ) {
@@ -277,7 +326,9 @@ fun IdleDetectorProvider(
     // Delegate to core implementation
     IdleDetectorProvider(
         idleTimeout = config.timeout,
+        warningTimeout = config.warningTimeout,
         checkInterval = config.checkInterval,
+        onWarning = onWarning,
         onIdleWithOrigin = { fromBackground: Boolean ->
             val origin = IdleOrigin.fromBoolean(fromBackground)
             onIdle(origin)
@@ -285,3 +336,59 @@ fun IdleDetectorProvider(
         content = content
     )
 }
+
+/**
+ * A Composable function that provides idle detection with warning support using type-safe callbacks.
+ *
+ * This overload provides the most comprehensive API with both warning and idle callbacks
+ * using type-safe [IdleOrigin] for the idle callback.
+ *
+ * ## Usage
+ * ```kotlin
+ * IdleDetectorProvider(
+ *     idleTimeout = 5.minutes,
+ *     warningTimeout = 1.minutes,
+ *     onWarning = { remainingTime ->
+ *         showWarningDialog(remainingTime)
+ *     },
+ *     onIdle = { origin ->
+ *         when (origin) {
+ *             IdleOrigin.Foreground -> showIdleScreen()
+ *             IdleOrigin.Background -> logoutUser()
+ *         }
+ *     }
+ * ) {
+ *     YourApp()
+ * }
+ * ```
+ *
+ * @param idleTimeout Duration of inactivity before considered idle
+ * @param warningTimeout Duration before idle timeout to trigger warning (must be less than idleTimeout)
+ * @param checkInterval How often to check for idle state (default: 1 second)
+ * @param onWarning Callback invoked when warning period begins, with remaining time until idle
+ * @param onIdle Callback with type-safe [IdleOrigin] parameter
+ * @param content The app content to wrap
+ *
+ * @see IdleOrigin
+ * @see LocalIdleTimerState
+ */
+@Composable
+@JvmName("IdleDetectorProviderWithWarningAndIdleOrigin")
+fun IdleDetectorProvider(
+    idleTimeout: Duration,
+    warningTimeout: Duration,
+    checkInterval: Duration = 1.seconds,
+    onWarning: (Duration) -> Unit,
+    onIdle: (IdleOrigin) -> Unit,
+    content: @Composable () -> Unit,
+) = IdleDetectorProvider(
+    idleTimeout = idleTimeout,
+    warningTimeout = warningTimeout,
+    checkInterval = checkInterval,
+    onWarning = onWarning,
+    onIdleWithOrigin = { fromBackground: Boolean ->
+        val origin = IdleOrigin.fromBoolean(fromBackground)
+        onIdle(origin)
+    },
+    content = content
+)

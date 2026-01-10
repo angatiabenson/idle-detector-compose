@@ -23,6 +23,7 @@ import kotlinx.coroutines.launch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
 /*
@@ -38,8 +39,10 @@ internal class IdleDetector(
     private val context: android.content.Context,
     private val lifecycleOwner: LifecycleOwner,
     private val idleTimeout: Duration,
+    private val warningTimeout: Duration? = null,
     private val checkInterval: Duration = 1.seconds,
     private val onIdleWithOrigin: (Boolean) -> Unit,
+    private val onWarning: ((Duration) -> Unit)? = null,
 ) {
     private val workManager = WorkManager.getInstance(context)
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
@@ -53,7 +56,15 @@ internal class IdleDetector(
     val isIdle: State<Boolean>
         get() = derivedStateOf { _isIdle }
 
+    // Timer state for countdown functionality
+    private var _timerState by mutableStateOf(
+        IdleTimerState.initial(idleTimeout, warningTimeout)
+    )
+    val timerState: State<IdleTimerState>
+        get() = derivedStateOf { _timerState }
+
     private var _onIdleCalled by mutableStateOf(false)
+    private var _onWarningCalled by mutableStateOf(false)
     private var pollingTimerJob: Job? = null
 
     private val lifecycleObserver = LifecycleEventObserver { _, event ->
@@ -67,7 +78,7 @@ internal class IdleDetector(
     }
 
     init {
-        IdleDetectorLogger.d("IdleDetector initialized")
+        IdleDetectorLogger.d("IdleDetector initialized with timeout: $idleTimeout, warningTimeout: $warningTimeout")
         lifecycleOwner.lifecycle.addObserver(lifecycleObserver)
     }
 
@@ -77,6 +88,8 @@ internal class IdleDetector(
         registerInteraction()
         _isIdle = false
         _onIdleCalled = false
+        _onWarningCalled = false
+        _timerState = IdleTimerState.initial(idleTimeout, warningTimeout)
     }
 
     fun registerInteraction() {
@@ -86,9 +99,17 @@ internal class IdleDetector(
         IdlePersistence.recordInteraction(context, now)
         _isIdle = false
 
+        // Reset timer state to full remaining time
+        _timerState = IdleTimerState.initial(idleTimeout, warningTimeout)
+
         if (_onIdleCalled) {
             IdleDetectorLogger.d("Resetting onIdleCalled state due to new interaction")
             _onIdleCalled = false
+        }
+
+        if (_onWarningCalled) {
+            IdleDetectorLogger.d("Resetting onWarningCalled state due to new interaction")
+            _onWarningCalled = false
         }
 
         cancelBackgroundTimeoutWorker()
@@ -101,11 +122,23 @@ internal class IdleDetector(
 
         val now = System.currentTimeMillis()
         val elapsed = now - previousInteractionTimestamp
+        val elapsedDuration = elapsed.milliseconds
         val isCurrentlyIdle = elapsed >= idleTimeout.inWholeMilliseconds
 
-        IdleDetectorLogger.d(
-            "Idle state: $isCurrentlyIdle (elapsed: $elapsed ms, timeout: ${idleTimeout.inWholeMilliseconds} ms)"
+        // Update timer state
+        _timerState = IdleTimerState.fromElapsed(
+            elapsedTime = elapsedDuration,
+            timeout = idleTimeout,
+            warningThreshold = warningTimeout,
         )
+
+        IdleDetectorLogger.d(
+            "Idle state: $isCurrentlyIdle (elapsed: $elapsed ms, timeout: ${idleTimeout.inWholeMilliseconds} ms, " +
+                    "remaining: ${_timerState.remainingTime.inWholeMilliseconds} ms)"
+        )
+
+        // Check warning state first (before idle)
+        checkWarningState(elapsedDuration)
 
         when {
             isCurrentlyIdle && !_onIdleCalled -> {
@@ -119,6 +152,29 @@ internal class IdleDetector(
                 IdleDetectorLogger.d("User interaction detected, resetting onIdleCalled state")
                 _onIdleCalled = false
                 _isIdle = false
+            }
+        }
+    }
+
+    private fun checkWarningState(elapsedTime: Duration) {
+        val warning = warningTimeout ?: return
+        val callback = onWarning ?: return
+
+        val warningThresholdTime = idleTimeout - warning
+        val isInWarningPeriod = elapsedTime >= warningThresholdTime && elapsedTime < idleTimeout
+
+        when {
+            isInWarningPeriod && !_onWarningCalled -> {
+                val remaining = idleTimeout - elapsedTime
+                IdleDetectorLogger.d("Warning state detected, calling onWarning with remaining: ${remaining.inWholeMilliseconds} ms")
+                callback(remaining)
+                _onWarningCalled = true
+            }
+
+            !isInWarningPeriod && _onWarningCalled && elapsedTime < warningThresholdTime -> {
+                // Reset if user interacted and we're back before warning threshold
+                IdleDetectorLogger.d("Resetting onWarningCalled state - back before warning threshold")
+                _onWarningCalled = false
             }
         }
     }

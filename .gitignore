@@ -17,3 +17,4 @@ gradle.properties
 /.kotlin
 /.idea/AndroidProjectSystem.xml
 /.idea/inspectionProfiles/Project_Default.xml
+docs/
