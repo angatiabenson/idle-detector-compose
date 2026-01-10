@@ -186,7 +186,7 @@ class IdleDetectorIntegrationTest {
 
     @Test
     fun `complete background idle detection workflow`() = runTest {
-        val idleTimeout = 1.seconds
+        val idleTimeout = 2.seconds
         val idleDetector = createIdleDetector(idleTimeout)
 
         // 1. Initialize and activate detector
