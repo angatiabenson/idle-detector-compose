@@ -3,7 +3,6 @@ package ke.co.banit.idle_detector_compose
 import androidx.compose.runtime.Immutable
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.ZERO
-import kotlin.time.Duration.Companion.milliseconds
 
 /*
  * Copyright 2025 Angatia Benson
@@ -66,7 +65,7 @@ data class IdleTimerState(
      * Progress from 0.0 (just interacted) to 1.0 (idle timeout reached).
      *
      * This value is clamped between 0.0 and 1.0 and is suitable for use
-     * with progress indicators like [LinearProgressIndicator] or [CircularProgressIndicator].
+     * with progress indicators like LinearProgressIndicator or CircularProgressIndicator.
      *
      * ## Example
      * ```kotlin
@@ -155,7 +154,6 @@ data class IdleTimerState(
     val timeUntilWarning: Duration?
         get() {
             val threshold = warningThreshold ?: return null
-            val warningStartTime = totalTimeout - threshold
             val timeUntil = remainingTime - threshold
             return timeUntil.coerceAtLeast(ZERO)
         }

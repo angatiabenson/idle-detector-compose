@@ -74,14 +74,9 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      - name: Decode GPG Key
-        env:
-          GPG_KEY_CONTENTS: ${{ secrets.GPG_KEY_CONTENTS }}
-        run: |
-          echo "$GPG_KEY_CONTENTS" | base64 --decode > signing-key.gpg
-
       - name: Publish to Maven Central
         env:
+          # These map directly to gradle.properties for the plugin
           ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
           ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
           ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.GPG_SIGNING_KEY }}
@@ -89,10 +84,6 @@ jobs:
           ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.GPG_SIGNING_KEY_PASSWORD }}
         run: |
           ./gradlew :idle-detector-compose:publishAndReleaseToMavenCentral --no-configuration-cache --stacktrace
-
-      - name: Clean up GPG key
-        if: always()
-        run: rm -f signing-key.gpg
 
   create-release:
     name: Create GitHub Release
