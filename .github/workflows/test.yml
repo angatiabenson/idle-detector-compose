@@ -11,8 +11,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  ORG_GRADLE_PROJECT_android.useAndroidX: "true"
-  ORG_GRADLE_PROJECT_android.enableJetifier: "true"
+  GRADLE_OPTS: "-Dorg.gradle.project.android.useAndroidX=true -Dorg.gradle.project.android.enableJetifier=true"
 
 jobs:
   test:
